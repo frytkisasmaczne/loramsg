@@ -11,6 +11,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.children
+import androidx.core.view.get
+import androidx.core.view.size
 import com.hoho.android.usbserial.driver.SerialTimeoutException
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
@@ -63,7 +66,7 @@ class MainActivity : AppCompatActivity(), SerialInputOutputManager.Listener {
             if (port.isOpen) {
                 try {
                     var edittext = findViewById<EditText>(R.id.edittext)
-                    port.write(edittext.text.toString().encodeToByteArray(), WRITE_WAIT_MILLIS)
+                    port.write((edittext.text.toString()+"\n").encodeToByteArray(), WRITE_WAIT_MILLIS)
                 } catch (e: SerialTimeoutException) {
                     Toast.makeText(applicationContext, "SerialTimeoutException: $e", Toast.LENGTH_SHORT).show()
                 }
@@ -74,12 +77,36 @@ class MainActivity : AppCompatActivity(), SerialInputOutputManager.Listener {
         Toast.makeText(applicationContext, "port not open", Toast.LENGTH_SHORT).show()
     }
 
+    fun settings(v: View) {
+
+//        if (::port.isInitialized) {
+//            if (port.isOpen) {
+//                try {
+//                    var edittext = findViewById<EditText>(R.id.edittext)
+//                    port.write(edittext.text.toString().encodeToByteArray(), WRITE_WAIT_MILLIS)
+//                } catch (e: SerialTimeoutException) {
+//                    Toast.makeText(applicationContext, "SerialTimeoutException: $e", Toast.LENGTH_SHORT).show()
+//                }
+//
+//                return
+//            }
+//        }
+//        Toast.makeText(applicationContext, "port not open", Toast.LENGTH_SHORT).show()
+    }
+
     override fun onNewData(data: ByteArray?) {
-        this.runOnUiThread { Toast.makeText(this.applicationContext, "\"${data?.let { String(it) }}\"", Toast.LENGTH_SHORT).show() }
+        var text: String = data?.let { String(it) }.toString();
+        this.runOnUiThread { Toast.makeText(this.applicationContext, "\"${text}\"", Toast.LENGTH_SHORT).show() }
         var listview = findViewById<LinearLayout>(R.id.listview)
-        var entry = TextView(applicationContext)
-        entry.text = data?.let { String(it) }
-        this.runOnUiThread { listview.addView(entry) }
+        if (listview.children.lastOrNull() != null && text.last() != '\n') {
+            var entry = listview.children.last() as TextView;
+            entry.text = "${entry.text}${text}";
+        } else {
+            var entry = TextView(applicationContext)
+            entry.text = data?.let { String(it) }
+            this.runOnUiThread { listview.addView(entry) }
+        }
+
     }
 
     override fun onRunError(e: Exception?) {
