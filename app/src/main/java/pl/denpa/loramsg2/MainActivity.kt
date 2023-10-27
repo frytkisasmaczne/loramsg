@@ -21,7 +21,7 @@ import androidx.core.view.children
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val boardConnector = BoardConnector(this, intent.getParcelableExtra(UsbManager.EXTRA_DEVICE))
+        val boardConnector = BoardConnector(this)
         setContentView(R.layout.activity_main)
     }
 
