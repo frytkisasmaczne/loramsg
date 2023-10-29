@@ -1,4 +1,4 @@
-package pl.denpa.loramsg2
+package pl.denpa.loramsg3
 
 import org.junit.Test
 

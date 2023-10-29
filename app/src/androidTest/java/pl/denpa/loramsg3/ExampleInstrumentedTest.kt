@@ -1,4 +1,4 @@
-package pl.denpa.loramsg2
+package pl.denpa.loramsg3
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
