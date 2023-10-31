@@ -41,7 +41,7 @@ public class DevicesFragment extends ListFragment {
 
     private final ArrayList<ListItem> listItems = new ArrayList<>();
     private ArrayAdapter<ListItem> listAdapter;
-    private int baudRate = 19200;
+    private int baudRate = 9600;
     private boolean withIoManager = true;
 
     @Override
@@ -134,6 +134,7 @@ public class DevicesFragment extends ListFragment {
             if(driver == null) {
                 driver = usbCustomProber.probeDevice(device);
             }
+
             if(driver != null) {
                 for(int port = 0; port < driver.getPorts().size(); port++)
                     listItems.add(new ListItem(device, port, driver));

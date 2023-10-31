@@ -87,6 +87,7 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
         portNum = getArguments().getInt("port");
         baudRate = getArguments().getInt("baud");
         withIoManager = getArguments().getBoolean("withIoManager");
+        Toast.makeText(getActivity().getApplicationContext(), "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -172,6 +173,7 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
     public void onNewData(byte[] data) {
         mainLooper.post(() -> {
             receive(data);
+
         });
     }
 
@@ -265,7 +267,7 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
             return;
         }
         try {
-        byte[] data = (str + '\n').getBytes();
+            byte[] data = (str + '\n').getBytes();
             SpannableStringBuilder spn = new SpannableStringBuilder();
             spn.append("send " + data.length + " bytes\n");
             spn.append(HexDump.dumpHexString(data)).append("\n");
