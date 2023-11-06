@@ -61,6 +61,8 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
     private UsbPermission usbPermission = UsbPermission.Unknown;
     private boolean connected = false;
 
+    MsgStore msgStore;
+
     public TerminalFragment() {
         broadcastReceiver = new BroadcastReceiver() {
             @Override
@@ -68,7 +70,8 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
                 if(INTENT_ACTION_GRANT_USB.equals(intent.getAction())) {
                     usbPermission = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                             ? UsbPermission.Granted : UsbPermission.Denied;
-                    connect();
+
+                    msgStore = (MsgStore) getActivity().getApplicationContext();
                 }
             }
         };
@@ -88,6 +91,7 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
         baudRate = getArguments().getInt("baud");
         withIoManager = getArguments().getBoolean("withIoManager");
         Toast.makeText(getActivity().getApplicationContext(), "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
+
     }
 
     @Override
@@ -185,81 +189,81 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
         });
     }
 
-    /*
-     * Serial + UI
-     */
-    private void connect() {
-        UsbDevice device = null;
-        UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
-        for(UsbDevice v : usbManager.getDeviceList().values())
-            if(v.getDeviceId() == deviceId)
-                device = v;
-        if(device == null) {
-            status("connection failed: device not found");
-            return;
-        }
-        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-        if(driver == null) {
-            driver = CustomProber.getCustomProber().probeDevice(device);
-        }
-        if(driver == null) {
-            status("connection failed: no driver for device");
-            return;
-        }
-        if(driver.getPorts().size() < portNum) {
-            status("connection failed: not enough ports at device");
-            return;
-        }
-        usbSerialPort = driver.getPorts().get(portNum);
-        UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
-        if(usbConnection == null && usbPermission == UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
-            usbPermission = UsbPermission.Requested;
-            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
-            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
-            usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
-            return;
-        }
-        if(usbConnection == null) {
-            if (!usbManager.hasPermission(driver.getDevice()))
-                status("connection failed: permission denied");
-            else
-                status("connection failed: open failed");
-            return;
-        }
-
-        try {
-            usbSerialPort.open(usbConnection);
-            try{
-                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
-            }catch (UnsupportedOperationException e){
-                status("unsupport setparameters");
-            }
-            if(withIoManager) {
-                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
-                usbIoManager.start();
-            }
-            status("connected");
-            connected = true;
-            controlLines.start();
-        } catch (Exception e) {
-            status("connection failed: " + e.getMessage());
-            disconnect();
-        }
-    }
-
-    private void disconnect() {
-        connected = false;
-        controlLines.stop();
-        if(usbIoManager != null) {
-            usbIoManager.setListener(null);
-            usbIoManager.stop();
-        }
-        usbIoManager = null;
-        try {
-            usbSerialPort.close();
-        } catch (IOException ignored) {}
-        usbSerialPort = null;
-    }
+//    /*
+//     * Serial + UI
+//     */
+//    private void connect() {
+//        UsbDevice device = null;
+//        UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+//        for(UsbDevice v : usbManager.getDeviceList().values())
+//            if(v.getDeviceId() == deviceId)
+//                device = v;
+//        if(device == null) {
+//            status("connection failed: device not found");
+//            return;
+//        }
+//        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
+//        if(driver == null) {
+//            driver = CustomProber.getCustomProber().probeDevice(device);
+//        }
+//        if(driver == null) {
+//            status("connection failed: no driver for device");
+//            return;
+//        }
+//        if(driver.getPorts().size() < portNum) {
+//            status("connection failed: not enough ports at device");
+//            return;
+//        }
+//        usbSerialPort = driver.getPorts().get(portNum);
+//        UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
+//        if(usbConnection == null && usbPermission == UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
+//            usbPermission = UsbPermission.Requested;
+//            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
+//            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
+//            usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
+//            return;
+//        }
+//        if(usbConnection == null) {
+//            if (!usbManager.hasPermission(driver.getDevice()))
+//                status("connection failed: permission denied");
+//            else
+//                status("connection failed: open failed");
+//            return;
+//        }
+//
+//        try {
+//            usbSerialPort.open(usbConnection);
+//            try{
+//                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
+//            }catch (UnsupportedOperationException e){
+//                status("unsupport setparameters");
+//            }
+//            if(withIoManager) {
+//                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
+//                usbIoManager.start();
+//            }
+//            status("connected");
+//            connected = true;
+//            controlLines.start();
+//        } catch (Exception e) {
+//            status("connection failed: " + e.getMessage());
+//            disconnect();
+//        }
+//    }
+//
+//    private void disconnect() {
+//        connected = false;
+//        controlLines.stop();
+//        if(usbIoManager != null) {
+//            usbIoManager.setListener(null);
+//            usbIoManager.stop();
+//        }
+//        usbIoManager = null;
+//        try {
+//            usbSerialPort.close();
+//        } catch (IOException ignored) {}
+//        usbSerialPort = null;
+//    }
 
     private void send(String str) {
         if(!connected) {
