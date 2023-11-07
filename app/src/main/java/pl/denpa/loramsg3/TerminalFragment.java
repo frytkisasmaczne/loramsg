@@ -40,41 +40,31 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.EnumSet;
 
-public class TerminalFragment extends Fragment implements SerialInputOutputManager.Listener {
+public class TerminalFragment extends Fragment {
 
-    private enum UsbPermission { Unknown, Requested, Granted, Denied }
+//    private enum UsbPermission { Unknown, Requested, Granted, Denied }
 
     private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
-    private static final int WRITE_WAIT_MILLIS = 2000;
-    private static final int READ_WAIT_MILLIS = 2000;
+//    private static final int WRITE_WAIT_MILLIS = 2000;
+//    private static final int READ_WAIT_MILLIS = 2000;
 
-    private int deviceId, portNum, baudRate;
-    private boolean withIoManager;
+//    private int deviceId, portNum, baudRate;
+//    private boolean withIoManager;
 
-    private final BroadcastReceiver broadcastReceiver;
+//    private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private TextView receiveText;
     private ControlLines controlLines;
 
-    private SerialInputOutputManager usbIoManager;
-    private UsbSerialPort usbSerialPort;
-    private UsbPermission usbPermission = UsbPermission.Unknown;
-    private boolean connected = false;
+//    private SerialInputOutputManager usbIoManager;
+//    private UsbSerialPort usbSerialPort;
+//    private UsbPermission usbPermission = UsbPermission.Unknown;
+//    private boolean connected = false;
 
     MsgStore msgStore;
 
     public TerminalFragment() {
-        broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if(INTENT_ACTION_GRANT_USB.equals(intent.getAction())) {
-                    usbPermission = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                            ? UsbPermission.Granted : UsbPermission.Denied;
-
-                    msgStore = (MsgStore) getActivity().getApplicationContext();
-                }
-            }
-        };
+        msgStore = (MsgStore) getActivity().getApplicationContext();
         mainLooper = new Handler(Looper.getMainLooper());
     }
 
@@ -246,7 +236,7 @@ public class TerminalFragment extends Fragment implements SerialInputOutputManag
 //            connected = true;
 //            controlLines.start();
 //        } catch (Exception e) {
-//            status("connection failed: " + e.getMessage());
+//            status(e.getMessage());
 //            disconnect();
 //        }
 //    }
