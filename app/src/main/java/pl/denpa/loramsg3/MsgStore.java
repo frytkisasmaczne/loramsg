@@ -13,24 +13,30 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.style.ForegroundColorSpan;
 import android.widget.Toast;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
+import com.hoho.android.usbserial.util.HexDump;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class MsgStore extends Application implements SerialInputOutputManager.Listener {
+public class MsgStore implements SerialInputOutputManager.Listener {
+
+    public static MsgStore oneandonly = null;
 
     private enum UsbPermission { Unknown, Requested, Granted, Denied }
     private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
-    private int deviceId, portNum, baudRate;
+    private int deviceId, portNum, baudRate = -1;
     private boolean withIoManager;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
@@ -52,7 +58,8 @@ public class MsgStore extends Application implements SerialInputOutputManager.Li
             }
         };
         mainLooper = new Handler(Looper.getMainLooper());
-        Toast.makeText(getApplicationContext(), "majonez kielecki", Toast.LENGTH_SHORT).show();
+        System.out.println("majonez kielecki");
+        oneandonly = this;
     }
 
 
@@ -75,9 +82,9 @@ public class MsgStore extends Application implements SerialInputOutputManager.Li
         }
     }
 
-    public ArrayList<String> get_messages(String user) {
+    public ArrayList<String[]> get_messages(String user) {
         if (chats.containsKey(user)) {
-            chats.get(user);
+            return chats.get(user);
         }
         return null;
     }
@@ -101,13 +108,35 @@ public class MsgStore extends Application implements SerialInputOutputManager.Li
 //        });
     }
 
+    public void setDevice(int deviceId, int portNum, int baudRate) {
+        this.deviceId = deviceId;
+        this.portNum = portNum;
+        this.baudRate = baudRate;
+    }
+
+    public void send(String str) {
+        if(!connected) {
+            System.out.println("not connected");
+            return;
+        }
+        try {
+            byte[] data = (str + '\n').getBytes();
+            usbSerialPort.write(data, WRITE_WAIT_MILLIS);
+        } catch (Exception e) {
+            onRunError(e);
+        }
+    }
+
     /*
      * Serial + UI
      */
-    private void connect(int deviceId, int portNum, int baudRate) throws Exception {
-        Toast.makeText(getApplicationContext(), "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
+    public void connect(Context context) throws Exception {
+        if (deviceId == -1 || portNum == -1 || baudRate == -1) {
+            throw new Exception("device not set");
+        }
+//        Toast.makeText(context, "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
         UsbDevice device = null;
-        UsbManager usbManager = (UsbManager) getApplicationContext().getSystemService(Context.USB_SERVICE);
+        UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         for(UsbDevice v : usbManager.getDeviceList().values())
             if(v.getDeviceId() == deviceId)
                 device = v;
@@ -129,7 +158,7 @@ public class MsgStore extends Application implements SerialInputOutputManager.Li
         if(usbConnection == null && usbPermission == MsgStore.UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
             usbPermission = MsgStore.UsbPermission.Requested;
             int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
-            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getApplicationContext(), 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
+            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
             usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
 
         }
@@ -145,24 +174,21 @@ public class MsgStore extends Application implements SerialInputOutputManager.Li
             try{
                 usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
             }catch (UnsupportedOperationException e){
-                status("unsupport setparameters");
+                System.out.println("not supported setparameters");
             }
             if(withIoManager) {
                 usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
                 usbIoManager.start();
             }
-            status("connected");
             connected = true;
-            controlLines.start();
         } catch (Exception e) {
-            status("connection failed: " + e.getMessage());
             disconnect();
+            throw new Exception("connection failed: " + e.getMessage());
         }
     }
 
     private void disconnect() {
         connected = false;
-        controlLines.stop();
         if(usbIoManager != null) {
             usbIoManager.setListener(null);
             usbIoManager.stop();

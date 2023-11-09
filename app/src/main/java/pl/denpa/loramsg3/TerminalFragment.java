@@ -59,12 +59,12 @@ public class TerminalFragment extends Fragment {
 //    private SerialInputOutputManager usbIoManager;
 //    private UsbSerialPort usbSerialPort;
 //    private UsbPermission usbPermission = UsbPermission.Unknown;
-//    private boolean connected = false;
+    private boolean connected = false;
 
     MsgStore msgStore;
 
     public TerminalFragment() {
-        msgStore = (MsgStore) getActivity().getApplicationContext();
+        msgStore = MsgStore.oneandonly;
         mainLooper = new Handler(Looper.getMainLooper());
     }
 
@@ -76,32 +76,32 @@ public class TerminalFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setRetainInstance(true);
-        deviceId = getArguments().getInt("device");
-        portNum = getArguments().getInt("port");
-        baudRate = getArguments().getInt("baud");
-        withIoManager = getArguments().getBoolean("withIoManager");
-        Toast.makeText(getActivity().getApplicationContext(), "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
+//        deviceId = getArguments().getInt("device");
+//        portNum = getArguments().getInt("port");
+//        baudRate = getArguments().getInt("baud");
+//        withIoManager = getArguments().getBoolean("withIoManager");
+//        Toast.makeText(getActivity().getApplicationContext(), "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
 
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
+//    @Override
+//    public void onResume() {
+//        super.onResume();
+//        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
+//
+//        if(usbPermission == UsbPermission.Unknown || usbPermission == UsbPermission.Granted)
+//            mainLooper.post(this::connect);
+//    }
 
-        if(usbPermission == UsbPermission.Unknown || usbPermission == UsbPermission.Granted)
-            mainLooper.post(this::connect);
-    }
-
-    @Override
-    public void onPause() {
-        if(connected) {
-            status("disconnected");
-            disconnect();
-        }
-        getActivity().unregisterReceiver(broadcastReceiver);
-        super.onPause();
-    }
+//    @Override
+//    public void onPause() {
+//        if(connected) {
+//            status("disconnected");
+//            disconnect();
+//        }
+//        getActivity().unregisterReceiver(broadcastReceiver);
+//        super.onPause();
+//    }
 
     /*
      * UI
@@ -117,11 +117,11 @@ public class TerminalFragment extends Fragment {
         sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
         View receiveBtn = view.findViewById(R.id.receive_btn);
         controlLines = new ControlLines(view);
-        if(withIoManager) {
+//        if(withIoManager) {
             receiveBtn.setVisibility(View.GONE);
-        } else {
-            receiveBtn.setOnClickListener(v -> read());
-        }
+//        } else {
+//            receiveBtn.setOnClickListener(v -> read());
+//        }
         return view;
     }
 
@@ -132,114 +132,67 @@ public class TerminalFragment extends Fragment {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.clear) {
-            receiveText.setText("");
-            return true;
-        } else if( id == R.id.send_break) {
-            if(!connected) {
-                Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
-            } else {
-                try {
-                    usbSerialPort.setBreak(true);
-                    Thread.sleep(100); // should show progress bar instead of blocking UI thread
-                    usbSerialPort.setBreak(false);
-                    SpannableStringBuilder spn = new SpannableStringBuilder();
-                    spn.append("send <break>\n");
-                    spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    receiveText.append(spn);
-                } catch(UnsupportedOperationException ignored) {
-                    Toast.makeText(getActivity(), "BREAK not supported", Toast.LENGTH_SHORT).show();
-                } catch(Exception e) {
-                    Toast.makeText(getActivity(), "BREAK failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                }
-            }
-            return true;
-        } else {
-            return super.onOptionsItemSelected(item);
-        }
-    }
-
-    /*
-     * Serial
-     */
-    @Override
-    public void onNewData(byte[] data) {
-        mainLooper.post(() -> {
-            receive(data);
-
-        });
-    }
-
-    @Override
-    public void onRunError(Exception e) {
-        mainLooper.post(() -> {
-            status("connection lost: " + e.getMessage());
-            disconnect();
-        });
+//        int id = item.getItemId();
+//        if (id == R.id.clear) {
+//            receiveText.setText("");
+//            return true;
+//        } else if( id == R.id.send_break) {
+//            if(!connected) {
+//                Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
+//            } else {
+//                try {
+//                    usbSerialPort.setBreak(true);
+//                    Thread.sleep(100); // should show progress bar instead of blocking UI thread
+//                    usbSerialPort.setBreak(false);
+//                    SpannableStringBuilder spn = new SpannableStringBuilder();
+//                    spn.append("send <break>\n");
+//                    spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+//                    receiveText.append(spn);
+//                } catch(UnsupportedOperationException ignored) {
+//                    Toast.makeText(getActivity(), "BREAK not supported", Toast.LENGTH_SHORT).show();
+//                } catch(Exception e) {
+//                    Toast.makeText(getActivity(), "BREAK failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+//                }
+//            }
+//            return true;
+//        } else {
+//            return super.onOptionsItemSelected(item);
+//        }
+        return super.onOptionsItemSelected(item);
     }
 
 //    /*
-//     * Serial + UI
+//     * Serial
 //     */
-//    private void connect() {
-//        UsbDevice device = null;
-//        UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
-//        for(UsbDevice v : usbManager.getDeviceList().values())
-//            if(v.getDeviceId() == deviceId)
-//                device = v;
-//        if(device == null) {
-//            status("connection failed: device not found");
-//            return;
-//        }
-//        UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-//        if(driver == null) {
-//            driver = CustomProber.getCustomProber().probeDevice(device);
-//        }
-//        if(driver == null) {
-//            status("connection failed: no driver for device");
-//            return;
-//        }
-//        if(driver.getPorts().size() < portNum) {
-//            status("connection failed: not enough ports at device");
-//            return;
-//        }
-//        usbSerialPort = driver.getPorts().get(portNum);
-//        UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
-//        if(usbConnection == null && usbPermission == UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
-//            usbPermission = UsbPermission.Requested;
-//            int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
-//            PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(getActivity(), 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
-//            usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
-//            return;
-//        }
-//        if(usbConnection == null) {
-//            if (!usbManager.hasPermission(driver.getDevice()))
-//                status("connection failed: permission denied");
-//            else
-//                status("connection failed: open failed");
-//            return;
-//        }
+//    @Override
+//    public void onNewData(byte[] data) {
+//        mainLooper.post(() -> {
+//            receive(data);
 //
-//        try {
-//            usbSerialPort.open(usbConnection);
-//            try{
-//                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
-//            }catch (UnsupportedOperationException e){
-//                status("unsupport setparameters");
-//            }
-//            if(withIoManager) {
-//                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
-//                usbIoManager.start();
-//            }
-//            status("connected");
-//            connected = true;
-//            controlLines.start();
-//        } catch (Exception e) {
-//            status(e.getMessage());
-//            disconnect();
-//        }
+//        });
 //    }
+
+//    @Override
+//    public void onRunError(Exception e) {
+//        mainLooper.post(() -> {
+//            status("connection lost: " + e.getMessage());
+//            disconnect();
+//        });
+//    }
+
+    /*
+     * Serial + UI
+     */
+    private void connect() {
+        try {
+            msgStore.connect(getActivity().getApplicationContext());
+            status("connected");
+            connected = true;
+            controlLines.start();
+        } catch (Exception e) {
+            status(e.getMessage());
+        }
+    }
 //
 //    private void disconnect() {
 //        connected = false;
@@ -267,28 +220,30 @@ public class TerminalFragment extends Fragment {
             spn.append(HexDump.dumpHexString(data)).append("\n");
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
-            usbSerialPort.write(data, WRITE_WAIT_MILLIS);
+            msgStore.send(str);
         } catch (Exception e) {
-            onRunError(e);
+            mainLooper.post(() -> {
+                status("connection lost: " + e.getMessage());
+            });
         }
     }
 
-    private void read() {
-        if(!connected) {
-            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            byte[] buffer = new byte[8192];
-            int len = usbSerialPort.read(buffer, READ_WAIT_MILLIS);
-            receive(Arrays.copyOf(buffer, len));
-        } catch (IOException e) {
-            // when using read with timeout, USB bulkTransfer returns -1 on timeout _and_ errors
-            // like connection loss, so there is typically no exception thrown here on error
-            status("connection lost: " + e.getMessage());
-            disconnect();
-        }
-    }
+//    private void read() {
+//        if(!connected) {
+//            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
+//        try {
+//            byte[] buffer = new byte[8192];
+//            int len = usbSerialPort.read(buffer, READ_WAIT_MILLIS);
+//            receive(Arrays.copyOf(buffer, len));
+//        } catch (IOException e) {
+//            // when using read with timeout, USB bulkTransfer returns -1 on timeout _and_ errors
+//            // like connection loss, so there is typically no exception thrown here on error
+//            status("connection lost: " + e.getMessage());
+//            disconnect();
+//        }
+//    }
 
     private void receive(byte[] data) {
         SpannableStringBuilder spn = new SpannableStringBuilder();
@@ -331,53 +286,60 @@ public class TerminalFragment extends Fragment {
                 return;
             }
             String ctrl = "";
-            try {
-                if (btn.equals(rtsBtn)) { ctrl = "RTS"; usbSerialPort.setRTS(btn.isChecked()); }
-                if (btn.equals(dtrBtn)) { ctrl = "DTR"; usbSerialPort.setDTR(btn.isChecked()); }
-            } catch (IOException e) {
-                status("set" + ctrl + "() failed: " + e.getMessage());
-            }
+//            try {
+//                if (btn.equals(rtsBtn)) { ctrl = "RTS"; usbSerialPort.setRTS(btn.isChecked()); }
+//                if (btn.equals(dtrBtn)) { ctrl = "DTR"; usbSerialPort.setDTR(btn.isChecked()); }
+//            } catch (IOException e) {
+//                status("set" + ctrl + "() failed: " + e.getMessage());
+//            }
         }
 
         private void run() {
             if (!connected)
                 return;
-            try {
-                EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getControlLines();
-                rtsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RTS));
-                ctsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CTS));
-                dtrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DTR));
-                dsrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DSR));
-                cdBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CD));
-                riBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RI));
-                mainLooper.postDelayed(runnable, refreshInterval);
-            } catch (Exception e) {
-                status("getControlLines() failed: " + e.getMessage() + " -> stopped control line refresh");
-            }
+//            try {
+//                EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getControlLines();
+//                rtsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RTS));
+//                ctsBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CTS));
+//                dtrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DTR));
+//                dsrBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.DSR));
+//                cdBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.CD));
+//                riBtn.setChecked(controlLines.contains(UsbSerialPort.ControlLine.RI));
+//                mainLooper.postDelayed(runnable, refreshInterval);
+//            } catch (Exception e) {
+//                status("getControlLines() failed: " + e.getMessage() + " -> stopped control line refresh");
+//            }
         }
 
         void start() {
             if (!connected)
                 return;
-            try {
-                EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getSupportedControlLines();
-                if (!controlLines.contains(UsbSerialPort.ControlLine.RTS)) rtsBtn.setVisibility(View.INVISIBLE);
-                if (!controlLines.contains(UsbSerialPort.ControlLine.CTS)) ctsBtn.setVisibility(View.INVISIBLE);
-                if (!controlLines.contains(UsbSerialPort.ControlLine.DTR)) dtrBtn.setVisibility(View.INVISIBLE);
-                if (!controlLines.contains(UsbSerialPort.ControlLine.DSR)) dsrBtn.setVisibility(View.INVISIBLE);
-                if (!controlLines.contains(UsbSerialPort.ControlLine.CD))   cdBtn.setVisibility(View.INVISIBLE);
-                if (!controlLines.contains(UsbSerialPort.ControlLine.RI))   riBtn.setVisibility(View.INVISIBLE);
-                run();
-            } catch (Exception e) {
-                Toast.makeText(getActivity(), "getSupportedControlLines() failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                rtsBtn.setVisibility(View.INVISIBLE);
-                ctsBtn.setVisibility(View.INVISIBLE);
-                dtrBtn.setVisibility(View.INVISIBLE);
-                dsrBtn.setVisibility(View.INVISIBLE);
-                cdBtn.setVisibility(View.INVISIBLE);
-                cdBtn.setVisibility(View.INVISIBLE);
-                riBtn.setVisibility(View.INVISIBLE);
-            }
+//            try {
+//                EnumSet<UsbSerialPort.ControlLine> controlLines = usbSerialPort.getSupportedControlLines();
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.RTS)) rtsBtn.setVisibility(View.INVISIBLE);
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.CTS)) ctsBtn.setVisibility(View.INVISIBLE);
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.DTR)) dtrBtn.setVisibility(View.INVISIBLE);
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.DSR)) dsrBtn.setVisibility(View.INVISIBLE);
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.CD))   cdBtn.setVisibility(View.INVISIBLE);
+//                if (!controlLines.contains(UsbSerialPort.ControlLine.RI))   riBtn.setVisibility(View.INVISIBLE);
+//                run();
+//            } catch (Exception e) {
+//                Toast.makeText(getActivity(), "getSupportedControlLines() failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+//                rtsBtn.setVisibility(View.INVISIBLE);
+//                ctsBtn.setVisibility(View.INVISIBLE);
+//                dtrBtn.setVisibility(View.INVISIBLE);
+//                dsrBtn.setVisibility(View.INVISIBLE);
+//                cdBtn.setVisibility(View.INVISIBLE);
+//                cdBtn.setVisibility(View.INVISIBLE);
+//                riBtn.setVisibility(View.INVISIBLE);
+//            }
+            rtsBtn.setVisibility(View.INVISIBLE);
+            ctsBtn.setVisibility(View.INVISIBLE);
+            dtrBtn.setVisibility(View.INVISIBLE);
+            dsrBtn.setVisibility(View.INVISIBLE);
+            cdBtn.setVisibility(View.INVISIBLE);
+            cdBtn.setVisibility(View.INVISIBLE);
+            riBtn.setVisibility(View.INVISIBLE);
         }
 
         void stop() {

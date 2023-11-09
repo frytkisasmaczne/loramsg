@@ -43,6 +43,7 @@ public class DevicesFragment extends ListFragment {
     private ArrayAdapter<ListItem> listAdapter;
     private int baudRate = 9600;
     private boolean withIoManager = true;
+    private MsgStore msgStore = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -67,6 +68,7 @@ public class DevicesFragment extends ListFragment {
                 return view;
             }
         };
+        msgStore = MsgStore.oneandonly;
     }
 
     @Override
@@ -158,6 +160,8 @@ public class DevicesFragment extends ListFragment {
             args.putBoolean("withIoManager", withIoManager);
             Fragment fragment = new TerminalFragment();
             fragment.setArguments(args);
+            msgStore.setDevice(item.device.getDeviceId(), item.port, baudRate);
+            System.out.println("starting terminal fragment");
             getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
         }
     }
