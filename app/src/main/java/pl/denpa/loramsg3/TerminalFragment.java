@@ -122,6 +122,7 @@ public class TerminalFragment extends Fragment {
 //        } else {
 //            receiveBtn.setOnClickListener(v -> read());
 //        }
+        connect();
         return view;
     }
 
@@ -193,7 +194,7 @@ public class TerminalFragment extends Fragment {
             status(e.getMessage());
         }
     }
-//
+
 //    private void disconnect() {
 //        connected = false;
 //        controlLines.stop();

@@ -64,18 +64,22 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
 
 
-    //called from MainActivity onNewData sorter NAI
-    public void receive(String user, String message) {
-        if (!chats.containsKey(user)) {
-            chats.put(user, new ArrayList<>());
-        }
-        chats.get(user).add(new String[]{user, message});
+    // internal serial port callback
+    public void receive(byte[] data) {
+        System.out.println(data.toString());
+
+
+
+//        if (!chats.containsKey(user)) {
+//            chats.put(user, new ArrayList<>());
+//        }
+//        chats.get(user).add(new String[]{user, message});
 
         //if main fragment is a chat then
         //pass forward to it to append so full reload isn't required
     }
 
-    //called from TerminalFragment
+    //called from TerminalFragment to broadcast msg
     public void send(String user, String message) {
         if (!chats.containsKey(user)) {
             chats.put(user, new ArrayList<>());
@@ -94,10 +98,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
      */
     @Override
     public void onNewData(byte[] data) {
-//        mainLooper.post(() -> {
-//            receive(data);
-//
-//        });
+        mainLooper.post(() -> {
+            receive(data);
+
+        });
     }
 
     @Override
