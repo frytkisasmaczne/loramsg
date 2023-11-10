@@ -1,14 +1,5 @@
 package pl.denpa.loramsg3;
 
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
-import android.hardware.usb.UsbManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -30,25 +21,20 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
-import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.HexDump;
-import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TerminalFragment extends Fragment {
 
 //    private enum UsbPermission { Unknown, Requested, Granted, Denied }
 
-    private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
+//    private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
 //    private static final int WRITE_WAIT_MILLIS = 2000;
 //    private static final int READ_WAIT_MILLIS = 2000;
 
-//    private int deviceId, portNum, baudRate;
+    private String recipient;
 //    private boolean withIoManager;
 
 //    private final BroadcastReceiver broadcastReceiver;
@@ -64,7 +50,7 @@ public class TerminalFragment extends Fragment {
     MsgStore msgStore;
 
     public TerminalFragment() {
-        msgStore = MsgStore.oneandonly;
+        msgStore = MsgStore.getInstance();
         mainLooper = new Handler(Looper.getMainLooper());
     }
 
@@ -76,7 +62,7 @@ public class TerminalFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setRetainInstance(true);
-//        deviceId = getArguments().getInt("device");
+        recipient = getArguments().getString("user");
 //        portNum = getArguments().getInt("port");
 //        baudRate = getArguments().getInt("baud");
 //        withIoManager = getArguments().getBoolean("withIoManager");
@@ -84,14 +70,11 @@ public class TerminalFragment extends Fragment {
 
     }
 
-//    @Override
-//    public void onResume() {
-//        super.onResume();
-//        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
-//
-//        if(usbPermission == UsbPermission.Unknown || usbPermission == UsbPermission.Granted)
-//            mainLooper.post(this::connect);
-//    }
+    @Override
+    public void onResume() {
+        super.onResume();
+        msgStore.setOpenChat(this);
+    }
 
 //    @Override
 //    public void onPause() {
@@ -114,15 +97,20 @@ public class TerminalFragment extends Fragment {
         receiveText.setMovementMethod(ScrollingMovementMethod.getInstance());
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
-        sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
+        sendBtn.setOnClickListener(v -> {
+            send(sendText.getText().toString());
+            sendText.clearComposingText();
+        });
         View receiveBtn = view.findViewById(R.id.receive_btn);
         controlLines = new ControlLines(view);
-//        if(withIoManager) {
-            receiveBtn.setVisibility(View.GONE);
-//        } else {
-//            receiveBtn.setOnClickListener(v -> read());
-//        }
-        connect();
+        controlLines.start();
+        receiveBtn.setVisibility(View.GONE);
+        List<Message> messages = msgStore.getMessages(recipient);
+        if (messages != null) {
+            for (Message msg : messages) {
+                appendText(msg.author + ": " + msg.text);
+            }
+        }
         return view;
     }
 
@@ -181,19 +169,18 @@ public class TerminalFragment extends Fragment {
 //        });
 //    }
 
-    /*
-     * Serial + UI
-     */
-    private void connect() {
-        try {
-            msgStore.connect(getActivity().getApplicationContext(), this);
-            status("connected");
-            connected = true;
-            controlLines.start();
-        } catch (Exception e) {
-            status(e.getMessage());
-        }
-    }
+//    /*
+//     * Serial + UI
+//     */
+//    private void connect() {
+//        try {
+//            status("connected");
+//            connected = true;
+//
+//        } catch (Exception e) {
+//            status(e.getMessage());
+//        }
+//    }
 
 //    private void disconnect() {
 //        connected = false;
@@ -210,23 +197,30 @@ public class TerminalFragment extends Fragment {
 //    }
 
     private void send(String str) {
-        if(!connected) {
-            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
-            return;
-        }
+//        if(!connected) {
+//            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
         try {
-            byte[] data = (str + '\n').getBytes();
+            msgStore.send(recipient, str);
+            byte[] data = (str).getBytes();
             SpannableStringBuilder spn = new SpannableStringBuilder();
             spn.append("send " + data.length + " bytes\n");
             spn.append(HexDump.dumpHexString(data)).append("\n");
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
-            msgStore.send(str);
         } catch (Exception e) {
             mainLooper.post(() -> {
-                status("connection lost: " + e.getMessage());
+                status("no connection, error: " + e.getMessage());
             });
         }
+    }
+
+    private void appendText(String text) {
+        SpannableStringBuilder spn = new SpannableStringBuilder();
+        spn.append(text).append("\n");
+        spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        receiveText.append(spn);
     }
 
 //    private void read() {
@@ -246,12 +240,9 @@ public class TerminalFragment extends Fragment {
 //        }
 //    }
 
-    public void receive(byte[] data) {
+    public void receive(String msg) {
         SpannableStringBuilder spn = new SpannableStringBuilder();
-        spn.append("receive " + data.length + " bytes\n");
-        if(data.length > 0)
-            spn.append(HexDump.dumpHexString(data)).append("\n");
-        System.out.println(spn);
+        spn.append(msg).append("\n");
         receiveText.append(spn);
     }
 
