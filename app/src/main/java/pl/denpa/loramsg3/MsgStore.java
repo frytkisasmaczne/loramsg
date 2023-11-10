@@ -49,7 +49,14 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
     public TerminalFragment openChat = null;
 
-    public MsgStore() {
+    public MsgStore getInstance() {
+        if (oneandonly == null) {
+            oneandonly = new MsgStore();
+        }
+        return oneandonly;
+    }
+
+    private MsgStore() {
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -79,8 +86,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //        }
 //        chats.get(user).add(new String[]{user, message});
 
-        //if main fragment is a chat then
-        //pass forward to it to append so full reload isn't required
     }
 
     //called from TerminalFragment to broadcast msg
@@ -118,10 +123,11 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //        });
     }
 
-    public void setDevice(int deviceId, int portNum, int baudRate) {
+    public void connect(Context context, TerminalFragment terminalFragment, int deviceId, int portNum, int baudRate) {
         this.deviceId = deviceId;
         this.portNum = portNum;
         this.baudRate = baudRate;
+
     }
 
     public void send(String str) {

@@ -44,11 +44,11 @@ public class TerminalFragment extends Fragment {
 
 //    private enum UsbPermission { Unknown, Requested, Granted, Denied }
 
-    private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
+//    private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
 //    private static final int WRITE_WAIT_MILLIS = 2000;
 //    private static final int READ_WAIT_MILLIS = 2000;
 
-//    private int deviceId, portNum, baudRate;
+    private String recipient;
 //    private boolean withIoManager;
 
 //    private final BroadcastReceiver broadcastReceiver;
@@ -76,7 +76,7 @@ public class TerminalFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setRetainInstance(true);
-//        deviceId = getArguments().getInt("device");
+        recipient = getArguments().getString("recipient");
 //        portNum = getArguments().getInt("port");
 //        baudRate = getArguments().getInt("baud");
 //        withIoManager = getArguments().getBoolean("withIoManager");
@@ -114,7 +114,10 @@ public class TerminalFragment extends Fragment {
         receiveText.setMovementMethod(ScrollingMovementMethod.getInstance());
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
-        sendBtn.setOnClickListener(v -> send(sendText.getText().toString()));
+        sendBtn.setOnClickListener(v -> {
+            send(sendText.getText().toString());
+            sendText.clearComposingText();
+        });
         View receiveBtn = view.findViewById(R.id.receive_btn);
         controlLines = new ControlLines(view);
 //        if(withIoManager) {

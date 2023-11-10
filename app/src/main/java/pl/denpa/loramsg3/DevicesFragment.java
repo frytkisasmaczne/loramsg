@@ -160,7 +160,7 @@ public class DevicesFragment extends ListFragment {
             args.putBoolean("withIoManager", withIoManager);
             Fragment fragment = new TerminalFragment();
             fragment.setArguments(args);
-            msgStore.setDevice(item.device.getDeviceId(), item.port, baudRate);
+            msgStore.connect(item.device.getDeviceId(), item.port, baudRate, fragment);
             System.out.println("starting terminal fragment");
             getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
         }
