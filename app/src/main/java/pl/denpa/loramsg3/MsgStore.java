@@ -18,6 +18,8 @@ import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
 import android.widget.Toast;
 
+import androidx.fragment.app.FragmentActivity;
+
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
@@ -37,15 +39,15 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
     private int deviceId, portNum, baudRate = -1;
-    private boolean withIoManager;
+    private boolean withIoManager = true;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private SerialInputOutputManager usbIoManager;
     private UsbSerialPort usbSerialPort;
     private UsbPermission usbPermission = UsbPermission.Unknown;
     private boolean connected = false;
-
-    HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
+    private HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
+    public TerminalFragment openChat = null;
 
     public MsgStore() {
         broadcastReceiver = new BroadcastReceiver() {
@@ -66,8 +68,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     // internal serial port callback
     public void receive(byte[] data) {
-        System.out.println(data.toString());
-
+//        System.out.println(data.toString());
+        if (openChat != null) {
+            openChat.receive(data);
+        }
 
 
 //        if (!chats.containsKey(user)) {
@@ -98,6 +102,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
      */
     @Override
     public void onNewData(byte[] data) {
+//        System.out.println("onNewData " + HexDump.dumpHexString(data));
         mainLooper.post(() -> {
             receive(data);
 
@@ -106,6 +111,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     @Override
     public void onRunError(Exception e) {
+        System.out.println("onRunError " + e.getMessage());
 //        mainLooper.post(() -> {
 //            status("connection lost: " + e.getMessage());
 //            disconnect();
@@ -119,6 +125,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     public void send(String str) {
+
         if(!connected) {
             System.out.println("not connected");
             return;
@@ -126,6 +133,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         try {
             byte[] data = (str + '\n').getBytes();
             usbSerialPort.write(data, WRITE_WAIT_MILLIS);
+            System.out.println(baudRate + " MsgStore.send " + str);
         } catch (Exception e) {
             onRunError(e);
         }
@@ -134,7 +142,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     /*
      * Serial + UI
      */
-    public void connect(Context context) throws Exception {
+    public void connect(Context context, TerminalFragment terminalFragment) throws Exception {
         if (deviceId == -1 || portNum == -1 || baudRate == -1) {
             throw new Exception("device not set");
         }
@@ -183,8 +191,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             if(withIoManager) {
                 usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
                 usbIoManager.start();
+                System.out.println("usbiomanager startet");
             }
             connected = true;
+            openChat = terminalFragment;
         } catch (Exception e) {
             disconnect();
             throw new Exception("connection failed: " + e.getMessage());

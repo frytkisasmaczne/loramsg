@@ -186,7 +186,7 @@ public class TerminalFragment extends Fragment {
      */
     private void connect() {
         try {
-            msgStore.connect(getActivity().getApplicationContext());
+            msgStore.connect(getActivity().getApplicationContext(), this);
             status("connected");
             connected = true;
             controlLines.start();
@@ -246,11 +246,12 @@ public class TerminalFragment extends Fragment {
 //        }
 //    }
 
-    private void receive(byte[] data) {
+    public void receive(byte[] data) {
         SpannableStringBuilder spn = new SpannableStringBuilder();
         spn.append("receive " + data.length + " bytes\n");
         if(data.length > 0)
             spn.append(HexDump.dumpHexString(data)).append("\n");
+        System.out.println(spn);
         receiveText.append(spn);
     }
 
