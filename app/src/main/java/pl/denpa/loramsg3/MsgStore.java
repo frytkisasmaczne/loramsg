@@ -102,6 +102,14 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         return null;
     }
 
+    public ArrayList<String[]> get_conversations() {
+        ArrayList<String[]> conversations = new ArrayList<>();
+        for (String user : chats.keySet()) {
+            conversations.add(new String[]{user, chats.get(user).get(chats.size())[0] + ": " + chats.get(user).get(chats.size())[1]});
+        }
+        return conversations;
+    }
+
     /*
      * Serial
      */
