@@ -158,9 +158,9 @@ public class DevicesFragment extends ListFragment {
             args.putInt("port", item.port);
             args.putInt("baud", baudRate);
             args.putBoolean("withIoManager", withIoManager);
-            Fragment fragment = new TerminalFragment();
+            TerminalFragment fragment = new TerminalFragment();
             fragment.setArguments(args);
-            msgStore.connect(item.device.getDeviceId(), item.port, baudRate, fragment);
+            msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
             System.out.println("starting terminal fragment");
             getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
         }
