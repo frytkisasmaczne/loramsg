@@ -64,7 +64,7 @@ public class TerminalFragment extends Fragment {
     MsgStore msgStore;
 
     public TerminalFragment() {
-        msgStore = MsgStore.oneandonly;
+        msgStore = MsgStore.getInstance();
         mainLooper = new Handler(Looper.getMainLooper());
     }
 
@@ -76,7 +76,7 @@ public class TerminalFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
         setRetainInstance(true);
-        recipient = getArguments().getString("recipient");
+        recipient = getArguments().getString("user");
 //        portNum = getArguments().getInt("port");
 //        baudRate = getArguments().getInt("baud");
 //        withIoManager = getArguments().getBoolean("withIoManager");

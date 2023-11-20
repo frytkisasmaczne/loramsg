@@ -1,8 +1,5 @@
 package pl.denpa.loramsg3;
 
-import static com.google.android.material.internal.ContextUtils.getActivity;
-
-import android.app.Application;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -13,17 +10,10 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.Spannable;
-import android.text.SpannableStringBuilder;
-import android.text.style.ForegroundColorSpan;
-import android.widget.Toast;
-
-import androidx.fragment.app.FragmentActivity;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
-import com.hoho.android.usbserial.util.HexDump;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
@@ -49,7 +39,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
     public TerminalFragment openChat = null;
 
-    public MsgStore getInstance() {
+    public static MsgStore getInstance() {
         if (oneandonly == null) {
             oneandonly = new MsgStore();
         }
@@ -68,7 +58,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         };
         mainLooper = new Handler(Looper.getMainLooper());
         System.out.println("majonez kielecki");
-        oneandonly = this;
     }
 
 
@@ -102,7 +91,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         return null;
     }
 
-    public ArrayList<String[]> get_conversations() {
+    public ArrayList<String[]> getConversations() {
         ArrayList<String[]> conversations = new ArrayList<>();
         for (String user : chats.keySet()) {
             conversations.add(new String[]{user, chats.get(user).get(chats.size())[0] + ": " + chats.get(user).get(chats.size())[1]});
@@ -131,7 +120,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //        });
     }
 
-    public void connect(Context context, TerminalFragment terminalFragment, int deviceId, int portNum, int baudRate) {
+    public void connect(Context context, int deviceId, int portNum, int baudRate) {
         this.deviceId = deviceId;
         this.portNum = portNum;
         this.baudRate = baudRate;
@@ -205,7 +194,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             if(withIoManager) {
                 usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
                 usbIoManager.start();
-                System.out.println("usbiomanager startet");
+                System.out.println("usbiomanager starteth");
             }
             connected = true;
             openChat = terminalFragment;

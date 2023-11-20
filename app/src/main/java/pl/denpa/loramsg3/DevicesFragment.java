@@ -68,7 +68,7 @@ public class DevicesFragment extends ListFragment {
                 return view;
             }
         };
-        msgStore = MsgStore.oneandonly;
+        msgStore = MsgStore.getInstance();
     }
 
     @Override
@@ -153,16 +153,10 @@ public class DevicesFragment extends ListFragment {
         if(item.driver == null) {
             Toast.makeText(getActivity(), "no driver", Toast.LENGTH_SHORT).show();
         } else {
-            Bundle args = new Bundle();
-            args.putInt("device", item.device.getDeviceId());
-            args.putInt("port", item.port);
-            args.putInt("baud", baudRate);
-            args.putBoolean("withIoManager", withIoManager);
-            TerminalFragment fragment = new TerminalFragment();
-            fragment.setArguments(args);
-            msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
+            ChatsFragment fragment = new ChatsFragment();
+            msgStore.connect(getActivity().getApplicationContext(), item.device.getDeviceId(), item.port, baudRate);
             System.out.println("starting terminal fragment");
-            getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
+            getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "chats").addToBackStack(null).commit();
         }
     }
 
