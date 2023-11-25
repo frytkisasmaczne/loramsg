@@ -154,8 +154,15 @@ public class DevicesFragment extends ListFragment {
             Toast.makeText(getActivity(), "no driver", Toast.LENGTH_SHORT).show();
         } else {
             ChatsFragment fragment = new ChatsFragment();
-            msgStore.connect(getActivity().getApplicationContext(), item.device.getDeviceId(), item.port, baudRate);
-            System.out.println("starting terminal fragment");
+            try {
+                msgStore.setContext(getActivity());
+                msgStore.setDevice(item.device.getDeviceId(), item.port, baudRate);
+//                msgStore.connect();
+            } catch (Exception e) {
+                Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+
+            System.out.println("starting chats fragment");
             getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "chats").addToBackStack(null).commit();
         }
     }

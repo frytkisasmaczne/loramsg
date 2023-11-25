@@ -1,14 +1,5 @@
 package pl.denpa.loramsg3;
 
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.hardware.usb.UsbDevice;
-import android.hardware.usb.UsbDeviceConnection;
-import android.hardware.usb.UsbManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -30,15 +21,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-import com.hoho.android.usbserial.driver.UsbSerialPort;
-import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.HexDump;
-import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.EnumSet;
+import java.util.ArrayList;
 
 public class TerminalFragment extends Fragment {
 
@@ -84,14 +69,11 @@ public class TerminalFragment extends Fragment {
 
     }
 
-//    @Override
-//    public void onResume() {
-//        super.onResume();
-//        getActivity().registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
-//
-//        if(usbPermission == UsbPermission.Unknown || usbPermission == UsbPermission.Granted)
-//            mainLooper.post(this::connect);
-//    }
+    @Override
+    public void onResume() {
+        super.onResume();
+        msgStore.setOpenChat(this);
+    }
 
 //    @Override
 //    public void onPause() {
@@ -120,12 +102,14 @@ public class TerminalFragment extends Fragment {
         });
         View receiveBtn = view.findViewById(R.id.receive_btn);
         controlLines = new ControlLines(view);
-//        if(withIoManager) {
-            receiveBtn.setVisibility(View.GONE);
-//        } else {
-//            receiveBtn.setOnClickListener(v -> read());
-//        }
-        connect();
+        controlLines.start();
+        receiveBtn.setVisibility(View.GONE);
+        ArrayList<String[]> messages = msgStore.getMessages(recipient);
+        if (messages != null) {
+            for (String[] msg : messages) {
+                appendText(msg[0] + ": " + msg[1]);
+            }
+        }
         return view;
     }
 
@@ -184,19 +168,18 @@ public class TerminalFragment extends Fragment {
 //        });
 //    }
 
-    /*
-     * Serial + UI
-     */
-    private void connect() {
-        try {
-            msgStore.connect(getActivity().getApplicationContext(), this);
-            status("connected");
-            connected = true;
-            controlLines.start();
-        } catch (Exception e) {
-            status(e.getMessage());
-        }
-    }
+//    /*
+//     * Serial + UI
+//     */
+//    private void connect() {
+//        try {
+//            status("connected");
+//            connected = true;
+//
+//        } catch (Exception e) {
+//            status(e.getMessage());
+//        }
+//    }
 
 //    private void disconnect() {
 //        connected = false;
@@ -213,23 +196,30 @@ public class TerminalFragment extends Fragment {
 //    }
 
     private void send(String str) {
-        if(!connected) {
-            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
-            return;
-        }
+//        if(!connected) {
+//            Toast.makeText(getActivity(), "not connected", Toast.LENGTH_SHORT).show();
+//            return;
+//        }
         try {
+            msgStore.send(recipient, str);
             byte[] data = (str + '\n').getBytes();
             SpannableStringBuilder spn = new SpannableStringBuilder();
             spn.append("send " + data.length + " bytes\n");
             spn.append(HexDump.dumpHexString(data)).append("\n");
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
-            msgStore.send(str);
         } catch (Exception e) {
             mainLooper.post(() -> {
-                status("connection lost: " + e.getMessage());
+                status("no connection, error: " + e.getMessage());
             });
         }
+    }
+
+    private void appendText(String text) {
+        SpannableStringBuilder spn = new SpannableStringBuilder();
+        spn.append(text).append("\n");
+        spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        receiveText.append(spn);
     }
 
 //    private void read() {
@@ -254,7 +244,6 @@ public class TerminalFragment extends Fragment {
         spn.append("receive " + data.length + " bytes\n");
         if(data.length > 0)
             spn.append(HexDump.dumpHexString(data)).append("\n");
-        System.out.println(spn);
         receiveText.append(spn);
     }
 

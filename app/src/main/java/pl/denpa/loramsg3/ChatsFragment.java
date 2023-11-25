@@ -57,7 +57,7 @@ public class ChatsFragment extends ListFragment {
         setListAdapter(null);
         View header = getActivity().getLayoutInflater().inflate(R.layout.device_list_header, null, false);
         getListView().addHeaderView(header, null, false);
-        setEmptyText("<no USB devices found>");
+        setEmptyText("<no chats>");
         ((TextView) getListView().getEmptyView()).setTextSize(18);
         setListAdapter(listAdapter);
     }
