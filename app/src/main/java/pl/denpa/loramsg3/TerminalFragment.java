@@ -24,6 +24,7 @@ import androidx.fragment.app.Fragment;
 import com.hoho.android.usbserial.util.HexDump;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class TerminalFragment extends Fragment {
 
@@ -104,10 +105,10 @@ public class TerminalFragment extends Fragment {
         controlLines = new ControlLines(view);
         controlLines.start();
         receiveBtn.setVisibility(View.GONE);
-        ArrayList<String[]> messages = msgStore.getMessages(recipient);
+        List<Message> messages = msgStore.getMessages(recipient);
         if (messages != null) {
-            for (String[] msg : messages) {
-                appendText(msg[0] + ": " + msg[1]);
+            for (Message msg : messages) {
+                appendText(msg.author + ": " + msg.text);
             }
         }
         return view;
@@ -202,7 +203,7 @@ public class TerminalFragment extends Fragment {
 //        }
         try {
             msgStore.send(recipient, str);
-            byte[] data = (str + '\n').getBytes();
+            byte[] data = (str).getBytes();
             SpannableStringBuilder spn = new SpannableStringBuilder();
             spn.append("send " + data.length + " bytes\n");
             spn.append(HexDump.dumpHexString(data)).append("\n");
@@ -239,11 +240,9 @@ public class TerminalFragment extends Fragment {
 //        }
 //    }
 
-    public void receive(byte[] data) {
+    public void receive(String msg) {
         SpannableStringBuilder spn = new SpannableStringBuilder();
-        spn.append("receive " + data.length + " bytes\n");
-        if(data.length > 0)
-            spn.append(HexDump.dumpHexString(data)).append("\n");
+        spn.append(msg).append("\n");
         receiveText.append(spn);
     }
 

@@ -18,11 +18,11 @@ public class ChatsFragment extends ListFragment {
 
     static class ListItem {
         String user;
-        String lastMessage;
+//        String lastMessage;
 
-        ListItem(String user, String lastMessage) {
+        ListItem(String user/*, String lastMessage*/) {
             this.user = user;
-            this.lastMessage = lastMessage;
+//            this.lastMessage = lastMessage;
         }
     }
 
@@ -44,11 +44,12 @@ public class ChatsFragment extends ListFragment {
                 TextView text1 = view.findViewById(R.id.text1);
                 TextView text2 = view.findViewById(R.id.text2);
                 text1.setText(item.user);
-                text2.setText(item.lastMessage);
+//                text2.setText(item.lastMessage);
                 return view;
             }
         };
         msgStore = MsgStore.getInstance();
+
     }
 
     @Override
@@ -82,8 +83,8 @@ public class ChatsFragment extends ListFragment {
 
     void refresh() {
         listItems.clear();
-        for(String[] conversation : msgStore.getConversations()) {
-            listItems.add(new ChatsFragment.ListItem(conversation[0], conversation[1]));
+        for(String conversation : msgStore.getConversations()) {
+            listItems.add(new ChatsFragment.ListItem(conversation));
         }
         listAdapter.notifyDataSetChanged();
     }
