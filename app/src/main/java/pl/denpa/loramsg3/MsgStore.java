@@ -49,10 +49,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private boolean connected = false;
     private Context context = null;
     AppDatabase db = null;
-    private HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
     public TerminalFragment openChat = null;
     private StringBuilder receiveBuffer = new StringBuilder();
-    public String user = "uso";
+    public String user = "e";
 
     public static MsgStore getInstance() {
         System.out.println("just getinstance");
@@ -81,12 +80,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             }
         };
         mainLooper = new Handler(Looper.getMainLooper());
-
-
-        ArrayList<String[]> andrzejchat = new ArrayList<>();
-//        andrzejchat.add(new String[]{"andrzej", "asdf"});
-//        andrzejchat.add(new String[]{"uso", "xd"});
-//        chats.put("andrzej", andrzejchat);
     }
 
     // serial port onNewData callback
@@ -95,59 +88,77 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         receiveBuffer.append(decoded);
         if (!receiveBuffer.toString().endsWith("\r\n")) return;
         System.out.println("received " + receiveBuffer.toString());
-        if (receiveBuffer.toString().equals("+AT: OK\r\n")) {
-            System.out.println("pong");
-            send("AT+MODE=TEST");
-        }
-        else if (receiveBuffer.toString().equals("+MODE: TEST\r\n")) {
-            send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
-        }
-        else if (receiveBuffer.toString().startsWith("+TEST: RFCFG ")) {
-            send("AT+TEST=RXLRPKT");
-        }
-        else if (receiveBuffer.toString().equals("+TEST: RXLRPKT\r\n")) {
-            connected = true;
-        }
-        else if (receiveBuffer.toString().startsWith("+TEST: TXLRPKT")) {
-            send("AT+TEST=RXLRPKT");
-        }
-        else {
-//        else if (receiveBuffer.toString().startsWith("+TEST: ")) {
-//            if (receiveBuffer.toString().startsWith("+TEST: RX ")) {
-
-
-            Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
-//        if (!msgMatcher.find()) return;
-//        String sender = msgMatcher.group(1);
-//        String msg = msgMatcher.group(2);
-            String sender = "e";
-            String msg = receiveBuffer.toString();
-            if (!chats.containsKey(sender)) {
-                chats.put(sender, new ArrayList<>());
-            }
-//        chats.get(sender).add(new String[]{sender, msg});
-            db.messageDao().insert(new Message(sender, sender, msg));
-//        Fragment openFragment = getFragmentManager().findFragmentById(R.id.fragment);
-//        if (openFragment instanceof TerminalFragment) {
-//
-//        }
-            if (openChat != null) {
-                openChat.receive(msg);
-            }
-//            } else {
-//                Toast.makeText(context, "unrecognized command " + receiveBuffer, Toast.LENGTH_LONG).show();
-//            }
-//        }
+        for (String command : receiveBuffer.toString().split("\r\n")) {
+            receiveCommand(command);
         }
         receiveBuffer.setLength(0);
     }
 
-    public List<Message> getMessages(String user) {
+    private void receiveCommand(String command) {
+        System.out.println("receiveCommand(" + command + ")");
+        if (command.toString().equals("+AT: OK")) {
+            System.out.println("pong");
+            send("AT+MODE=TEST");
+        }
+        else if (command.toString().equals("+MODE: TEST")) {
+            send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
+        }
+        else if (command.toString().startsWith("+TEST: RFCFG ")) {
+            send("AT+TEST=RXLRPKT");
+        }
+        else if (command.toString().equals("+TEST: RXLRPKT")) {
+            connected = true;
+        }
+        else if (command.toString().equals("+TEST: TX DONE")) {
+            send("AT+TEST=RXLRPKT");
+        }
+        else {
+            Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
+            if (protoMsg.find()) {
+                String decoded = hexStringToString(protoMsg.group(1));
+                System.out.println("received lora packet " + decoded);
+                Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
+                if (!msgMatcher.find()) return;
+                String author = msgMatcher.group(1);
+                String msg = msgMatcher.group(2);
+                db.messageDao().insert(new Message(author, null, msg));
+                if (openChat != null && openChat.recipient == null) {
+                    openChat.receive(msg);
+                }
+            }
+            else {
+                System.out.println("received unknown command " + command);
+            }
+        }
+    }
+
+    String hexStringToString(String hex) {
+        StringBuilder result = new StringBuilder(hex.length()/2);
+        for (int i = 0; i < hex.length(); i += 2) {
+            char currentChar = 0;
+            if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
+                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
+            } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
+                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
+            }
+
+            if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
+                currentChar += (char) (hex.getBytes()[i+1] - '0');
+            } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
+                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
+            }
+
+            result.append(currentChar);
+        }
+        return result.toString();
+    }
+
+    public List<Message> getMessages(String chat) {
 //        if (chats.containsKey(user)) {
 //            return chats.get(user);
 //        }
 //        return null;
-        return db.messageDao().getPrivConversation(user);
+        return chat == null ? db.messageDao().getBroadcastConversation() : db.messageDao().getPrivConversation(chat);
     }
 
     public List<String> getConversations() {
@@ -176,7 +187,12 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     @Override
     public void onRunError(Exception e) {
-        System.out.println("onRunError " + e.getClass());
+        System.out.println("onRunError " + e.getMessage());
+        if (e.getMessage().equals("USB get_status request failed")) {
+            System.out.println("plytka sie rozlaczyla but what now");
+        }
+
+
 //        mainLooper.post(() -> {
 //            status("connection lost: " + e.getMessage());
 //            disconnect();
@@ -184,18 +200,25 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     //called from TerminalFragment to transmit
-    public void send(String author, String str) {
+    public void send(String recipient, String msg) {
         if(!connected) {
             System.out.println("not connected");
             return;
         }
-        String protomsg = author + ":" + str;
-        //528chars max command len per docs page11
-        StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
-        for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
-            cmd.append(String.format("%x", b));
+        if (recipient == null) {
+            String protomsg = user + ":" + msg;
+            //todo 528chars max command len per docs page11
+            StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
+            for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
+                cmd.append(String.format("%x", b));
+            }
+            send(cmd.toString());
+            db.messageDao().insert(new Message(user, null, msg));
         }
-        send(cmd.toString());
+        else {
+            Toast.makeText(context, "idk how to send priv yet", Toast.LENGTH_SHORT).show();
+            System.out.println("idk how to send priv yet");
+        }
     }
 
     private void send(String command) {
@@ -215,7 +238,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public void setContext(Context context) {
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
-        db.messageDao().insert(new Message("kielecki", "kielecki", "klskkjlwfoij"));
+        db.messageDao().insert(new Message("kielecki", null, "smierc winiarskim gnidom"));
     }
 
     public void setOpenChat(TerminalFragment chat) {
