@@ -49,7 +49,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private boolean connected = false;
     private Context context = null;
     AppDatabase db = null;
-    private HashMap<String, ArrayList<String[]>> chats = new HashMap<>();
     public TerminalFragment openChat = null;
     private StringBuilder receiveBuffer = new StringBuilder();
     public String user = "uso";
@@ -81,12 +80,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             }
         };
         mainLooper = new Handler(Looper.getMainLooper());
-
-
-        ArrayList<String[]> andrzejchat = new ArrayList<>();
-//        andrzejchat.add(new String[]{"andrzej", "asdf"});
-//        andrzejchat.add(new String[]{"uso", "xd"});
-//        chats.put("andrzej", andrzejchat);
     }
 
     // serial port onNewData callback
@@ -95,51 +88,69 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         receiveBuffer.append(decoded);
         if (!receiveBuffer.toString().endsWith("\r\n")) return;
         System.out.println("received " + receiveBuffer.toString());
-        if (receiveBuffer.toString().equals("+AT: OK\r\n")) {
+        for (String command : receiveBuffer.toString().split("\r\n")) {
+            receiveCommand(command);
+        }
+        receiveBuffer.setLength(0);
+    }
+
+    private void receiveCommand(String command) {
+        System.out.println("receiveCommand(" + command + ")");
+        if (command.toString().equals("+AT: OK")) {
             System.out.println("pong");
             send("AT+MODE=TEST");
         }
-        else if (receiveBuffer.toString().equals("+MODE: TEST\r\n")) {
+        else if (command.toString().equals("+MODE: TEST")) {
             send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
         }
-        else if (receiveBuffer.toString().startsWith("+TEST: RFCFG ")) {
+        else if (command.toString().startsWith("+TEST: RFCFG ")) {
             send("AT+TEST=RXLRPKT");
         }
-        else if (receiveBuffer.toString().equals("+TEST: RXLRPKT\r\n")) {
+        else if (command.toString().equals("+TEST: RXLRPKT")) {
             connected = true;
         }
-        else if (receiveBuffer.toString().startsWith("+TEST: TXLRPKT")) {
+        else if (command.toString().equals("+TEST: TX DONE")) {
             send("AT+TEST=RXLRPKT");
         }
         else {
-//        else if (receiveBuffer.toString().startsWith("+TEST: ")) {
-//            if (receiveBuffer.toString().startsWith("+TEST: RX ")) {
-
-
-            Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
-//        if (!msgMatcher.find()) return;
-//        String sender = msgMatcher.group(1);
-//        String msg = msgMatcher.group(2);
-            String sender = "e";
-            String msg = receiveBuffer.toString();
-            if (!chats.containsKey(sender)) {
-                chats.put(sender, new ArrayList<>());
+            Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
+            if (protoMsg.find()) {
+                String decoded = hexStringToString(protoMsg.group(1));
+                System.out.println("received lora message " + decoded);
+                Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
+                if (!msgMatcher.find()) return;
+                String author = msgMatcher.group(1);
+                String msg = msgMatcher.group(2);
+                db.messageDao().insert(new Message(author, null, msg));
+                if (openChat != null && openChat.recipient.equals(author)) {
+                    openChat.receive(msg);
+                }
             }
-//        chats.get(sender).add(new String[]{sender, msg});
-            db.messageDao().insert(new Message(sender, sender, msg));
-//        Fragment openFragment = getFragmentManager().findFragmentById(R.id.fragment);
-//        if (openFragment instanceof TerminalFragment) {
-//
-//        }
-            if (openChat != null) {
-                openChat.receive(msg);
+            else {
+                System.out.println("received unknown command " + command);
             }
-//            } else {
-//                Toast.makeText(context, "unrecognized command " + receiveBuffer, Toast.LENGTH_LONG).show();
-//            }
-//        }
         }
-        receiveBuffer.setLength(0);
+    }
+
+    String hexStringToString(String hex) {
+        StringBuilder result = new StringBuilder(hex.length()/2);
+        for (int i = 0; i < hex.length(); i += 2) {
+            char currentChar = 0;
+            if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
+                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
+            } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
+                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
+            }
+
+            if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
+                currentChar += (char) (hex.getBytes()[i+1] - '0');
+            } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
+                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
+            }
+
+            result.append(currentChar);
+        }
+        return result.toString();
     }
 
     public List<Message> getMessages(String user) {
@@ -189,7 +200,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             System.out.println("not connected");
             return;
         }
-        String protomsg = author + ":" + str;
+        String protomsg = user + ":" + str;
         //528chars max command len per docs page11
         StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
         for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {

@@ -34,7 +34,7 @@ public class TerminalFragment extends Fragment {
 //    private static final int WRITE_WAIT_MILLIS = 2000;
 //    private static final int READ_WAIT_MILLIS = 2000;
 
-    private String recipient;
+    public String recipient;
 //    private boolean withIoManager;
 
 //    private final BroadcastReceiver broadcastReceiver;
