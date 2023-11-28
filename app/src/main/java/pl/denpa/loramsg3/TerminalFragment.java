@@ -205,8 +205,9 @@ public class TerminalFragment extends Fragment {
             msgStore.send(recipient, str);
             byte[] data = (str).getBytes();
             SpannableStringBuilder spn = new SpannableStringBuilder();
-            spn.append("send " + data.length + " bytes\n");
-            spn.append(HexDump.dumpHexString(data)).append("\n");
+//            spn.append("send " + data.length + " bytes\n");
+//            spn.append(HexDump.dumpHexString(data)).append("\n");
+            spn.append(msgStore.user).append(": ").append(str);
             spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
             receiveText.append(spn);
         } catch (Exception e) {

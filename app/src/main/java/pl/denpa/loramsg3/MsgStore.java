@@ -51,7 +51,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     AppDatabase db = null;
     public TerminalFragment openChat = null;
     private StringBuilder receiveBuffer = new StringBuilder();
-    public String user = "uso";
+    public String user = "e";
 
     public static MsgStore getInstance() {
         System.out.println("just getinstance");
@@ -116,13 +116,13 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
             if (protoMsg.find()) {
                 String decoded = hexStringToString(protoMsg.group(1));
-                System.out.println("received lora message " + decoded);
+                System.out.println("received lora packet " + decoded);
                 Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
                 if (!msgMatcher.find()) return;
                 String author = msgMatcher.group(1);
                 String msg = msgMatcher.group(2);
                 db.messageDao().insert(new Message(author, null, msg));
-                if (openChat != null && openChat.recipient.equals(author)) {
+                if (openChat != null && openChat.recipient == null) {
                     openChat.receive(msg);
                 }
             }
@@ -153,12 +153,12 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         return result.toString();
     }
 
-    public List<Message> getMessages(String user) {
+    public List<Message> getMessages(String chat) {
 //        if (chats.containsKey(user)) {
 //            return chats.get(user);
 //        }
 //        return null;
-        return db.messageDao().getPrivConversation(user);
+        return chat == null ? db.messageDao().getBroadcastConversation() : db.messageDao().getPrivConversation(chat);
     }
 
     public List<String> getConversations() {
@@ -187,7 +187,12 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     @Override
     public void onRunError(Exception e) {
-        System.out.println("onRunError " + e.getClass());
+        System.out.println("onRunError " + e.getMessage());
+        if (e.getMessage().equals("USB get_status request failed")) {
+            System.out.println("plytka sie rozlaczyla but what now");
+        }
+
+
 //        mainLooper.post(() -> {
 //            status("connection lost: " + e.getMessage());
 //            disconnect();
@@ -195,18 +200,25 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     //called from TerminalFragment to transmit
-    public void send(String author, String str) {
+    public void send(String recipient, String msg) {
         if(!connected) {
             System.out.println("not connected");
             return;
         }
-        String protomsg = user + ":" + str;
-        //528chars max command len per docs page11
-        StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
-        for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
-            cmd.append(String.format("%x", b));
+        if (recipient == null) {
+            String protomsg = user + ":" + msg;
+            //todo 528chars max command len per docs page11
+            StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
+            for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
+                cmd.append(String.format("%x", b));
+            }
+            send(cmd.toString());
+            db.messageDao().insert(new Message(user, null, msg));
         }
-        send(cmd.toString());
+        else {
+            Toast.makeText(context, "idk how to send priv yet", Toast.LENGTH_SHORT).show();
+            System.out.println("idk how to send priv yet");
+        }
     }
 
     private void send(String command) {
@@ -226,7 +238,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public void setContext(Context context) {
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
-        db.messageDao().insert(new Message("kielecki", "kielecki", "klskkjlwfoij"));
+        db.messageDao().insert(new Message("kielecki", null, "smierc winiarskim gnidom"));
     }
 
     public void setOpenChat(TerminalFragment chat) {

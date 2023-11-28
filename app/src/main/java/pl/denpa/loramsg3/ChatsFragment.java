@@ -10,18 +10,16 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.ListFragment;
 
-import com.hoho.android.usbserial.driver.UsbSerialDriver;
-
 import java.util.ArrayList;
 
 public class ChatsFragment extends ListFragment {
 
     static class ListItem {
-        String user;
+        String chat;
 //        String lastMessage;
 
-        ListItem(String user/*, String lastMessage*/) {
-            this.user = user;
+        ListItem(String chat/*, String lastMessage*/) {
+            this.chat = chat;
 //            this.lastMessage = lastMessage;
         }
     }
@@ -43,7 +41,11 @@ public class ChatsFragment extends ListFragment {
                     view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
                 TextView text1 = view.findViewById(R.id.text1);
                 TextView text2 = view.findViewById(R.id.text2);
-                text1.setText(item.user);
+                if (item.chat == null) {
+                    text1.setText("BROADCAST");
+                } else {
+                    text1.setText(item.chat);
+                }
 //                text2.setText(item.lastMessage);
                 return view;
             }
@@ -67,7 +69,7 @@ public class ChatsFragment extends ListFragment {
     public void onListItemClick(@NonNull ListView l, @NonNull View v, int position, long id) {
         ListItem item = listItems.get(position-1);
         Bundle args = new Bundle();
-        args.putString("user", item.user);
+        args.putString("user", item.chat);
         TerminalFragment fragment = new TerminalFragment();
         fragment.setArguments(args);
 //        msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
