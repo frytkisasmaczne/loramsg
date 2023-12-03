@@ -157,7 +157,7 @@ public class DevicesFragment extends ListFragment {
             try {
                 msgStore.setContext(getActivity());
                 msgStore.setDevice(item.device.getDeviceId(), item.port, baudRate);
-//                msgStore.connect();
+                msgStore.askForPermission();
             } catch (Exception e) {
                 Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();
             }

@@ -80,6 +80,7 @@ public class ChatsFragment extends ListFragment {
     @Override
     public void onResume() {
         super.onResume();
+        msgStore.restoreConnection();
         refresh();
     }
 

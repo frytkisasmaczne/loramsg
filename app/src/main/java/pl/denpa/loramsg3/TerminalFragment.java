@@ -74,6 +74,7 @@ public class TerminalFragment extends Fragment {
     public void onResume() {
         super.onResume();
         msgStore.setOpenChat(this);
+        msgStore.restoreConnection();
     }
 
 //    @Override
@@ -203,13 +204,11 @@ public class TerminalFragment extends Fragment {
 //        }
         try {
             msgStore.send(recipient, str);
-            byte[] data = (str).getBytes();
-            SpannableStringBuilder spn = new SpannableStringBuilder();
-//            spn.append("send " + data.length + " bytes\n");
-//            spn.append(HexDump.dumpHexString(data)).append("\n");
-            spn.append(msgStore.user).append(": ").append(str);
-            spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            receiveText.append(spn);
+
+//            SpannableStringBuilder spn = new SpannableStringBuilder();
+//            spn.append(msgStore.user).append(": ").append(str);
+//            spn.setSpan(new ForegroundColorSpan(getResources().getColor(R.color.colorSendText)), 0, spn.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            appendText(msgStore.user + ": " + str);
         } catch (Exception e) {
             mainLooper.post(() -> {
                 status("no connection, error: " + e.getMessage());
