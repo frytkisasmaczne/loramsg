@@ -50,7 +50,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private Context context = null;
     AppDatabase db = null;
     public TerminalFragment openChat = null;
-    private StringBuilder receiveBuffer = new StringBuilder();
+    private final StringBuilder receiveBuffer = new StringBuilder();
     public String user = "e";
 
     public static MsgStore getInstance() {
@@ -107,6 +107,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             send("AT+TEST=RXLRPKT");
         }
         else if (command.toString().equals("+TEST: RXLRPKT")) {
+            System.out.println("connected == true");
             connected = true;
         }
         else if (command.toString().equals("+TEST: TX DONE")) {
@@ -130,27 +131,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 System.out.println("received unknown command " + command);
             }
         }
-    }
-
-    String hexStringToString(String hex) {
-        StringBuilder result = new StringBuilder(hex.length()/2);
-        for (int i = 0; i < hex.length(); i += 2) {
-            char currentChar = 0;
-            if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
-                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
-            } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
-                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
-            }
-
-            if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
-                currentChar += (char) (hex.getBytes()[i+1] - '0');
-            } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
-                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
-            }
-
-            result.append(currentChar);
-        }
-        return result.toString();
     }
 
     public List<Message> getMessages(String chat) {
@@ -190,8 +170,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         System.out.println("onRunError " + e.getMessage());
         if (e.getMessage().equals("USB get_status request failed")) {
             System.out.println("plytka sie rozlaczyla but what now");
+            connected = false;
         }
-
 
 //        mainLooper.post(() -> {
 //            status("connection lost: " + e.getMessage());
@@ -201,8 +181,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     //called from TerminalFragment to transmit
     public void send(String recipient, String msg) {
-        if(!connected) {
+        if (!connected) {
             System.out.println("not connected");
+            Toast.makeText(context, "not connected", Toast.LENGTH_SHORT).show();
             return;
         }
         if (recipient == null) {
@@ -245,10 +226,13 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         openChat = chat;
     }
 
-    public void setDevice(int deviceId, int portNum, int baudRate) throws Exception {
+    public void setDevice(int deviceId, int portNum, int baudRate) {
         this.deviceId = deviceId;
         this.portNum = portNum;
         this.baudRate = baudRate;
+    }
+
+    public void askForPermission() throws Exception {
         if (deviceId == -1 || portNum == -1 || baudRate == -1 || context == null) {
             throw new Exception("device not set");
         }
@@ -274,7 +258,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         }
         usbSerialPort = driver.getPorts().get(portNum);
         UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
-        if(usbConnection == null && usbPermission == MsgStore.UsbPermission.Unknown && !usbManager.hasPermission(driver.getDevice())) {
+        if(usbConnection == null && !usbManager.hasPermission(driver.getDevice())) {
             usbPermission = MsgStore.UsbPermission.Requested;
             int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_MUTABLE : 0;
             PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
@@ -285,7 +269,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     private void connect() throws Exception {
-        System.out.println("connect() called");
+        System.out.println("connect()");
         if (deviceId == -1 || portNum == -1 || baudRate == -1) {
             throw new Exception("device not set");
         }
@@ -328,12 +312,23 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 usbIoManager.start();
                 System.out.println("usbiomanager starteth");
             }
-            send("at");
+            send("AT");
             System.out.println("ping");
             //response caught in onnewdata
         } catch (Exception e) {
             disconnect();
             throw new Exception("connection failed: " + e.getMessage());
+        }
+    }
+
+    public void restoreConnection() {
+        System.out.println("restoreConnection()");
+        if (!connected) {
+            try {
+                askForPermission();
+            } catch (Exception e) {
+                System.out.println(e.getMessage());
+            }
         }
     }
 
@@ -350,5 +345,25 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         usbSerialPort = null;
     }
 
+    String hexStringToString(String hex) {
+        StringBuilder result = new StringBuilder(hex.length()/2);
+        for (int i = 0; i < hex.length(); i += 2) {
+            char currentChar = 0;
+            if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
+                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
+            } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
+                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
+            }
+
+            if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
+                currentChar += (char) (hex.getBytes()[i+1] - '0');
+            } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
+                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
+            }
+
+            result.append(currentChar);
+        }
+        return result.toString();
+    }
 
 }
