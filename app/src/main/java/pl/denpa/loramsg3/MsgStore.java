@@ -1,6 +1,5 @@
 package pl.denpa.loramsg3;
 
-import android.app.Fragment;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -12,26 +11,27 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
-import com.hoho.android.usbserial.util.HexDump;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MsgStore implements SerialInputOutputManager.Listener {
+public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implements SerialInputOutputManager.Listener {
 
     public static MsgStore oneandonly = null;
 
@@ -49,20 +49,20 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private boolean connected = false;
     private Context context = null;
     AppDatabase db = null;
-    public TerminalFragment openChat = null;
+    public MsgFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
     public String user = "e";
 
     public static MsgStore getInstance() {
-        System.out.println("just getinstance");
+        System.out.println("getInstance()");
         if (oneandonly == null) {
-            System.out.println("now constructing msgstore");
             oneandonly = new MsgStore();
         }
         return oneandonly;
     }
 
     private MsgStore() {
+        System.out.println("MsgStore() constructor");
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -107,7 +107,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             send("AT+TEST=RXLRPKT");
         }
         else if (command.toString().equals("+TEST: RXLRPKT")) {
-            System.out.println("connected == true");
+            System.out.println("connected = true");
             connected = true;
         }
         else if (command.toString().equals("+TEST: TX DONE")) {
@@ -222,7 +222,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         db.messageDao().insert(new Message("kielecki", null, "smierc winiarskim gnidom"));
     }
 
-    public void setOpenChat(TerminalFragment chat) {
+    public void setOpenChat(MsgFragment chat) {
         openChat = chat;
     }
 
@@ -364,6 +364,46 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             result.append(currentChar);
         }
         return result.toString();
+    }
+
+    public static class ViewHolder extends RecyclerView.ViewHolder {
+        private final TextView textView;
+
+        public ViewHolder(View view) {
+            super(view);
+            // Define click listener for the ViewHolder's View
+            textView = (TextView) view.findViewById(R.id.textView);
+        }
+
+        public TextView getTextView() {
+            return textView;
+        }
+    }
+
+    // Create new views (invoked by the layout manager)
+    @Override
+    public MsgStore.ViewHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
+        // Create a new view, which defines the UI of the list item
+        View view = LayoutInflater.from(viewGroup.getContext())
+                .inflate(R.layout.msg_list_item, viewGroup, false);
+
+        return new MsgStore.ViewHolder(view);
+    }
+
+    // Replace the contents of a view (invoked by the layout manager)
+    @Override
+    public void onBindViewHolder(MsgStore.ViewHolder viewHolder, final int position) {
+
+        // Get element from your dataset at this position and replace the
+        // contents of the view with that element
+        Message msg = db.messageDao().getPrivConversation(openChat.recipient).get(position);
+        viewHolder.getTextView().setText(msg.author + ": " + msg.text);
+    }
+
+    // Return the size of your dataset (invoked by the layout manager)
+    @Override
+    public int getItemCount() {
+        return db.messageDao().getPrivConversation(openChat.recipient).size();
     }
 
 }
