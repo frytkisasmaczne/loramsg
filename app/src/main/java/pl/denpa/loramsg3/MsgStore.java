@@ -123,7 +123,7 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
                 String author = msgMatcher.group(1);
                 String msg = msgMatcher.group(2);
                 db.messageDao().insert(new Message(author, null, msg));
-                if (openChat != null && openChat.recipient == null) {
+                if (openChat != null && openChat.chat == null) {
                     openChat.receive(msg);
                 }
             }

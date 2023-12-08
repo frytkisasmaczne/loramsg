@@ -44,25 +44,28 @@ public class MsgFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.msg_fragment, container, false);
-        RecyclerView recyclerView = findViewById(R.id.recycler_view);
-        recyclerView.setAdapter(customAdapter);
+        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
+        recyclerView.setAdapter(msgStore);
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> {
             send(sendText.getText().toString());
             sendText.clearComposingText();
         });
-        View receiveBtn = view.findViewById(R.id.receive_btn);
-        controlLines = new TerminalFragment.ControlLines(view);
-        controlLines.start();
-        receiveBtn.setVisibility(View.GONE);
-        List<Message> messages = msgStore.getMessages(recipient);
-        if (messages != null) {
-            for (Message msg : messages) {
-                appendText(msg.author + ": " + msg.text);
-            }
-        }
+
         return view;
+    }
+
+    private void send(String str) {
+//        if(!connected) asdf
+        try {
+            msgStore.send(chat, str);
+//            appendText(msgStore.user + ": " + str);
+        } catch (Exception e) {
+//            mainLooper.post(() -> {
+//                status("no connection, error: " + e.getMessage());
+//            });
+        }
     }
 
 }
