@@ -123,9 +123,9 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
                 String author = msgMatcher.group(1);
                 String msg = msgMatcher.group(2);
                 db.messageDao().insert(new Message(author, null, msg));
-                if (openChat != null && openChat.chat == null) {
-                    openChat.receive(msg);
-                }
+//                if (openChat != null && openChat.chat == null) {
+//                    openChat.receive(msg);
+//                }
             }
             else {
                 System.out.println("received unknown command " + command);
@@ -396,14 +396,14 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
 
         // Get element from your dataset at this position and replace the
         // contents of the view with that element
-        Message msg = db.messageDao().getPrivConversation(openChat.recipient).get(position);
+        Message msg = db.messageDao().getPrivConversation(openChat.chat).get(position);
         viewHolder.getTextView().setText(msg.author + ": " + msg.text);
     }
 
     // Return the size of your dataset (invoked by the layout manager)
     @Override
     public int getItemCount() {
-        return db.messageDao().getPrivConversation(openChat.recipient).size();
+        return db.messageDao().getPrivConversation(openChat.chat).size();
     }
 
 }

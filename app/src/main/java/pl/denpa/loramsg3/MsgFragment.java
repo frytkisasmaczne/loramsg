@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -60,11 +61,8 @@ public class MsgFragment extends Fragment {
 //        if(!connected) asdf
         try {
             msgStore.send(chat, str);
-//            appendText(msgStore.user + ": " + str);
         } catch (Exception e) {
-//            mainLooper.post(() -> {
-//                status("no connection, error: " + e.getMessage());
-//            });
+            Toast.makeText(getActivity().getApplicationContext(), "not connected according to MsgFragment", Toast.LENGTH_SHORT).show();
         }
     }
 
