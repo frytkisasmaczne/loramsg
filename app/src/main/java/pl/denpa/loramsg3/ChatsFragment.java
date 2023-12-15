@@ -70,11 +70,11 @@ public class ChatsFragment extends ListFragment {
         ListItem item = listItems.get(position-1);
         Bundle args = new Bundle();
         args.putString("user", item.chat);
-        TerminalFragment fragment = new TerminalFragment();
+        MsgFragment fragment = new MsgFragment();
         fragment.setArguments(args);
 //        msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
         System.out.println("starting terminal fragment");
-        getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "terminal").addToBackStack(null).commit();
+        getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "msg").addToBackStack(null).commit();
     }
 
     @Override

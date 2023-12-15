@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
@@ -44,16 +45,20 @@ public class MsgFragment extends Fragment {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        System.out.println("MsgFragment.onCreateView()");
         View view = inflater.inflate(R.layout.msg_fragment, container, false);
         RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
         recyclerView.setAdapter(msgStore);
+        LinearLayoutManager llm = new LinearLayoutManager(getActivity());
+        llm.setOrientation(LinearLayoutManager.VERTICAL);
+        recyclerView.setLayoutManager(llm);
+        recyclerView.scrollToPosition(((LinearLayoutManager)recyclerView.getLayoutManager()).findFirstVisibleItemPosition());
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> {
             send(sendText.getText().toString());
             sendText.clearComposingText();
         });
-
         return view;
     }
 
