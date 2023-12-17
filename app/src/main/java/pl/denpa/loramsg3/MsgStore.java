@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 
@@ -27,11 +28,12 @@ import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implements SerialInputOutputManager.Listener {
+public class MsgStore implements SerialInputOutputManager.Listener {
 
     public static MsgStore oneandonly = null;
 
@@ -52,6 +54,7 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
     public MsgFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
     public String user = "e";
+
 
     public static MsgStore getInstance() {
         System.out.println("getInstance()");
@@ -122,7 +125,10 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
                 if (!msgMatcher.find()) return;
                 String author = msgMatcher.group(1);
                 String msg = msgMatcher.group(2);
-                db.messageDao().insert(new Message(author, null, msg));
+                if (author.equals("")) {
+                    author = null;
+                }
+                receiveMsg(author, msg);
 //                if (openChat != null && openChat.chat == null) {
 //                    openChat.receive(msg);
 //                }
@@ -133,11 +139,17 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
         }
     }
 
+    void receiveMsg(String author, String text) {
+        Message msg = new Message(author, null, text);
+        db.messageDao().insert();
+        if (openChat.chat.equals(author)) {
+            openChat.msgAdapter.msgs.add(msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+        }
+
+    }
+
     public List<Message> getMessages(String chat) {
-//        if (chats.containsKey(user)) {
-//            return chats.get(user);
-//        }
-//        return null;
         return chat == null ? db.messageDao().getBroadcastConversation() : db.messageDao().getPrivConversation(chat);
     }
 
@@ -169,7 +181,7 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
     public void onRunError(Exception e) {
         System.out.println("onRunError " + e.getMessage());
         if (e.getMessage().equals("USB get_status request failed")) {
-            System.out.println("plytka sie rozlaczyla but what now");
+            System.out.println("plytka sie rozlaczyla");
             connected = false;
         }
 
@@ -194,7 +206,21 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
                 cmd.append(String.format("%x", b));
             }
             send(cmd.toString());
-            db.messageDao().insert(new Message(user, null, msg));
+            Message db_msg = new Message(user, recipient, msg);
+            db.messageDao().insert(db_msg);
+            if (openChat.chat == null) {
+                openChat.msgAdapter.msgs.add(db_msg);
+                openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+                int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+                if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                    System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                    openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+                }
+            }
+            else if (openChat.chat.equals(user)) {
+                openChat.msgAdapter.msgs.add(db_msg);
+                openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            }
         }
         else {
             Toast.makeText(context, "idk how to send priv yet", Toast.LENGTH_SHORT).show();
@@ -364,48 +390,6 @@ public class MsgStore extends RecyclerView.Adapter<MsgStore.ViewHolder> implemen
             result.append(currentChar);
         }
         return result.toString();
-    }
-
-    public static class ViewHolder extends RecyclerView.ViewHolder {
-        private final TextView textView;
-
-        public ViewHolder(View view) {
-            super(view);
-            System.out.println("ViewHolder()");
-            // Define click listener for the ViewHolder's View
-            textView = (TextView) view.findViewById(R.id.textView);
-        }
-
-        public TextView getTextView() {
-            return textView;
-        }
-    }
-
-    // Create new views (invoked by the layout manager)
-    @Override
-    public MsgStore.ViewHolder onCreateViewHolder(ViewGroup viewGroup, int viewType) {
-        // Create a new view, which defines the UI of the list item
-        View view = LayoutInflater.from(viewGroup.getContext())
-                .inflate(R.layout.msg_list_item, viewGroup, false);
-        System.out.println("onCreateViewHolder");
-        return new MsgStore.ViewHolder(view);
-    }
-
-    // Replace the contents of a view (invoked by the layout manager)
-    @Override
-    public void onBindViewHolder(MsgStore.ViewHolder viewHolder, final int position) {
-
-        // Get element from your dataset at this position and replace the
-        // contents of the view with that element
-        Message msg = db.messageDao().getPrivConversation(openChat.chat).get(position);
-        viewHolder.getTextView().setText(msg.author + ": " + msg.text);
-        System.out.println(msg.author + ": " + msg.text);
-    }
-
-    // Return the size of your dataset (invoked by the layout manager)
-    @Override
-    public int getItemCount() {
-        return db.messageDao().getPrivConversation(openChat.chat).size();
     }
 
 }

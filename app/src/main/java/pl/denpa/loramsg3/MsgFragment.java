@@ -22,6 +22,8 @@ public class MsgFragment extends Fragment {
     public String chat;
     private final Handler mainLooper;
     private MsgStore msgStore;
+    public RecyclerView recyclerView;
+    public MsgAdapter msgAdapter;
 
     public MsgFragment() {
         msgStore = MsgStore.getInstance();
@@ -34,6 +36,7 @@ public class MsgFragment extends Fragment {
         setHasOptionsMenu(true);
         setRetainInstance(true);
         chat = getArguments().getString("chat");
+        msgAdapter = new MsgAdapter(chat);
     }
 
     @Override
@@ -47,12 +50,13 @@ public class MsgFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         System.out.println("MsgFragment.onCreateView()");
         View view = inflater.inflate(R.layout.msg_fragment, container, false);
-        RecyclerView recyclerView = view.findViewById(R.id.recycler_view);
-        recyclerView.setAdapter(msgStore);
+        recyclerView = view.findViewById(R.id.recycler_view);
+        recyclerView.setAdapter(msgAdapter);
         LinearLayoutManager llm = new LinearLayoutManager(getActivity());
         llm.setOrientation(LinearLayoutManager.VERTICAL);
         recyclerView.setLayoutManager(llm);
         recyclerView.scrollToPosition(((LinearLayoutManager)recyclerView.getLayoutManager()).findFirstVisibleItemPosition());
+        recyclerView.scrollToPosition(msgAdapter.getItemCount() - 1);
         TextView sendText = view.findViewById(R.id.send_text);
         View sendBtn = view.findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> {
@@ -67,7 +71,7 @@ public class MsgFragment extends Fragment {
         try {
             msgStore.send(chat, str);
         } catch (Exception e) {
-            Toast.makeText(getActivity().getApplicationContext(), "not connected according to MsgFragment", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getActivity().getApplicationContext(), "not connected in MsgFragment", Toast.LENGTH_SHORT).show();
         }
     }
 

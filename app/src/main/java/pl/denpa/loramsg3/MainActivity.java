@@ -35,14 +35,14 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         return true;
     }
 
-    @Override
-    protected void onNewIntent(Intent intent) {
-        if("android.hardware.usb.action.USB_DEVICE_ATTACHED".equals(intent.getAction())) {
-            TerminalFragment terminal = (TerminalFragment)getSupportFragmentManager().findFragmentByTag("terminal");
-            if (terminal != null)
-                terminal.status("USB device detected");
-        }
-        super.onNewIntent(intent);
-    }
+//    @Override
+//    protected void onNewIntent(Intent intent) {
+//        if("android.hardware.usb.action.USB_DEVICE_ATTACHED".equals(intent.getAction())) {
+//            TerminalFragment terminal = (TerminalFragment)getSupportFragmentManager().findFragmentByTag("terminal");
+//            if (terminal != null)
+//                terminal.status("USB device detected");
+//        }
+//        super.onNewIntent(intent);
+//    }
 
 }
