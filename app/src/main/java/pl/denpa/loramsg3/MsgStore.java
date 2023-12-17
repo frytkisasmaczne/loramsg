@@ -11,14 +11,9 @@ import android.hardware.usb.UsbManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.room.Room;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
@@ -28,10 +23,16 @@ import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.crypto.Cipher;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKeyFactory;
 
 public class MsgStore implements SerialInputOutputManager.Listener {
 
@@ -54,7 +55,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public MsgFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
     public String user = "e";
-
+    public HashMap<String, Cipher[]> ciphers = new HashMap<>();
+    //ciphers[i][0] = encryptCipher; ciphers[i][1] = decryptCipher;
+    private SecretKeyFactory secretKeyFactory;
 
     public static MsgStore getInstance() {
         System.out.println("getInstance()");
@@ -119,19 +122,42 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         else {
             Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
             if (protoMsg.find()) {
-                String decoded = hexStringToString(protoMsg.group(1));
+                byte[] pktbytes = hexStringTobyteArray(protoMsg.group(1));
+                String decoded = new String(pktbytes, StandardCharsets.UTF_8);
                 System.out.println("received lora packet " + decoded);
-                Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
-                if (!msgMatcher.find()) return;
-                String author = msgMatcher.group(1);
-                String msg = msgMatcher.group(2);
-                if (author.equals("")) {
-                    author = null;
-                }
-                receiveMsg(author, msg);
+                if (decoded.startsWith("#")) {
+                    int colonIndex = 0;
+                    for (int i = 0; i < pktbytes.length; i++) {
+                        if (pktbytes[i] == ':') {
+                            colonIndex = i;
+                            break;
+                        }
+                    }
+                    if (colonIndex == 0) return;
+                    String author = new String(Arrays.copyOfRange(pktbytes, 1, colonIndex), StandardCharsets.UTF_8);
+                    byte[] encrypted = Arrays.copyOfRange(pktbytes, colonIndex+1, pktbytes.length);
+                    String clear;
+                    try {
+                        clear = decrypt(author, encrypted);
+                    } catch (Exception e) {
+                        System.out.println("what from decrypt in receiveCommand: " + e);
+                        return;
+                    }
+                    receivePrivMsg(author, clear);
+
+                } else {
+                    Matcher msgMatcher = Pattern.compile("(\\w*):(.*)").matcher(decoded);
+                    if (!msgMatcher.find()) return;
+                    String author = msgMatcher.group(1);
+                    String msg = msgMatcher.group(2);
+                    if (author.equals("")) {
+                        author = null;
+                    }
+                    receiveBroadcastMsg(author, msg);
 //                if (openChat != null && openChat.chat == null) {
 //                    openChat.receive(msg);
 //                }
+                }
             }
             else {
                 System.out.println("received unknown command " + command);
@@ -139,14 +165,22 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         }
     }
 
-    void receiveMsg(String author, String text) {
+    void receiveBroadcastMsg(String author, String text) {
         Message msg = new Message(author, null, text);
         db.messageDao().insert();
-        if (openChat.chat.equals(author)) {
+        if (openChat.chat == null) {
             openChat.msgAdapter.msgs.add(msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
         }
+    }
 
+    void receivePrivMsg(String author, String text) {
+        Message msg = new Message(author, author, text);
+        db.messageDao().insert();
+        if (author.equals(openChat.chat)) {
+            openChat.msgAdapter.msgs.add(msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+        }
     }
 
     public List<Message> getMessages(String chat) {
@@ -371,25 +405,58 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         usbSerialPort = null;
     }
 
-    String hexStringToString(String hex) {
-        StringBuilder result = new StringBuilder(hex.length()/2);
+    byte[] hexStringTobyteArray(String hex) {
+        byte[] result = new byte[hex.length()/2];
         for (int i = 0; i < hex.length(); i += 2) {
-            char currentChar = 0;
+            byte currentChar = 0;
             if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
-                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
+                currentChar = (byte) ((hex.getBytes()[i] - '0') * 16);
             } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
-                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
+                currentChar = (byte) ((hex.getBytes()[i] - 'A' + 10) * 16);
             }
 
             if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
-                currentChar += (char) (hex.getBytes()[i+1] - '0');
+                currentChar += (byte) (hex.getBytes()[i+1] - '0');
             } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
-                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
+                currentChar += (byte) (hex.getBytes()[i+1] - 'A' + 10);
             }
 
-            result.append(currentChar);
+            result[i] = currentChar;
         }
-        return result.toString();
+        return result;
+    }
+
+    byte[] encrypt(String chat, String text) throws Exception {
+        Cipher encodeCipher = getCiphers(chat)[0];
+        byte[] clear = text.getBytes(StandardCharsets.UTF_8);
+        return encodeCipher.doFinal(clear);
+    }
+
+    String decrypt(String chat, byte[] text) throws Exception {
+        Cipher decodeCipher = getCiphers(chat)[1];
+        byte[] clear = decodeCipher.doFinal(text);
+        return new String(clear, StandardCharsets.UTF_8);
+    }
+
+    Cipher[] getCiphers(String chat) throws Exception {
+        if (!ciphers.containsKey(chat)) {
+            Chat chatobj = db.chatDao().getChat(chat);
+            if (chatobj == null) {
+                throw new Exception("no saved key for chat " + chat);
+            }
+
+            try {
+                Cipher encryptCipher = Cipher.getInstance("AES_128/CBC/NoPadding");
+                encryptCipher.init(Cipher.ENCRYPT_MODE, chatobj.key);
+                Cipher decryptCipher = Cipher.getInstance("AES_128/CBC/NoPadding");
+                encryptCipher.init(Cipher.DECRYPT_MODE, chatobj.key);
+//                secretKeyFactory = SecretKeyFactory.getInstance("AES");
+                ciphers.put(chat, new Cipher[]{encryptCipher, decryptCipher});
+            } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
+                System.out.println("what in getCiphers: " + e);
+            }
+        }
+        return ciphers.get(chat);
     }
 
 }
