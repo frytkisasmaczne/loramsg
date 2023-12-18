@@ -43,7 +43,6 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
     private int deviceId, portNum, baudRate = -1;
-    private boolean withIoManager = true;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private SerialInputOutputManager usbIoManager;
@@ -93,7 +92,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         String decoded = new String(data, StandardCharsets.UTF_8);
         receiveBuffer.append(decoded);
         if (!receiveBuffer.toString().endsWith("\r\n")) return;
-        System.out.println("received " + receiveBuffer.toString());
+        System.out.println("received " + receiveBuffer);
         for (String command : receiveBuffer.toString().split("\r\n")) {
             receiveCommand(command);
         }
@@ -102,7 +101,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     private void receiveCommand(String command) {
         System.out.println("receiveCommand(" + command + ")");
-        if (command.toString().equals("+AT: OK")) {
+        if (command.equals("+AT: OK")) {
             System.out.println("pong");
             send("AT+MODE=TEST");
         }
@@ -150,7 +149,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                     if (!msgMatcher.find()) return;
                     String author = msgMatcher.group(1);
                     String msg = msgMatcher.group(2);
-                    if (author.equals("")) {
+                    if ("".equals(author)) {
                         author = null;
                     }
                     receiveBroadcastMsg(author, msg);
@@ -242,7 +241,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             send(cmd.toString());
             Message db_msg = new Message(user, recipient, msg);
             db.messageDao().insert(db_msg);
-            if (openChat.chat == null) {
+            if ( (openChat.chat == null && user == null) || ((openChat.chat != null && user != null) && openChat.chat.equals(user)) ) {
                 openChat.msgAdapter.msgs.add(db_msg);
                 openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
                 int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
@@ -254,6 +253,11 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             else if (openChat.chat.equals(user)) {
                 openChat.msgAdapter.msgs.add(db_msg);
                 openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+                int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+                if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                    System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                    openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+                }
             }
         }
         else {
@@ -367,11 +371,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             }catch (UnsupportedOperationException e){
                 System.out.println("not supported setparameters");
             }
-            if(withIoManager) {
-                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
-                usbIoManager.start();
-                System.out.println("usbiomanager starteth");
-            }
+            usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
+            usbIoManager.start();
+            System.out.println("usbiomanager starteth");
             send("AT");
             System.out.println("ping");
             //response caught in onnewdata
