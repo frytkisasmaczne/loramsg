@@ -70,7 +70,7 @@ public class MsgFragment extends Fragment {
         try {
             msgStore.send(chat, str);
         } catch (Exception e) {
-            Toast.makeText(getActivity().getApplicationContext(), "not connected in MsgFragment", Toast.LENGTH_SHORT).show();
+            System.out.println("what in MsgFragment.send(" + str + ") chat = " + chat + ": " + e);
         }
     }
 

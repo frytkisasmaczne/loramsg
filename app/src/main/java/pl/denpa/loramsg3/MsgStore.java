@@ -22,6 +22,7 @@ import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -33,6 +34,7 @@ import java.util.regex.Pattern;
 import javax.crypto.Cipher;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.SecretKeySpec;
 
 public class MsgStore implements SerialInputOutputManager.Listener {
 
@@ -53,7 +55,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     AppDatabase db = null;
     public MsgFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
-    public String user = "e";
+    public String user = "kielecki";
     public HashMap<String, Cipher[]> ciphers = new HashMap<>();
     //ciphers[i][0] = encryptCipher; ciphers[i][1] = decryptCipher;
     private SecretKeyFactory secretKeyFactory;
@@ -231,38 +233,62 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             Toast.makeText(context, "not connected", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        Message db_msg = null;
+        byte[] msg_bytes = null;
+
         if (recipient == null) {
             String protomsg = user + ":" + msg;
-            //todo 528chars max command len per docs page11
-            StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
-            for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
-                cmd.append(String.format("%x", b));
-            }
-            send(cmd.toString());
-            Message db_msg = new Message(user, recipient, msg);
-            db.messageDao().insert(db_msg);
-            if ( (openChat.chat == null && user == null) || ((openChat.chat != null && user != null) && openChat.chat.equals(user)) ) {
-                openChat.msgAdapter.msgs.add(db_msg);
-                openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
-                int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
-                if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
-                    System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
-                    openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
-                }
-            }
-            else if (openChat.chat.equals(user)) {
-                openChat.msgAdapter.msgs.add(db_msg);
-                openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
-                int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
-                if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
-                    System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
-                    openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
-                }
-            }
+            msg_bytes = protomsg.getBytes(StandardCharsets.UTF_8);
         }
         else {
-            Toast.makeText(context, "idk how to send priv yet", Toast.LENGTH_SHORT).show();
-            System.out.println("idk how to send priv yet");
+            System.out.println("sure is priv for " + recipient);
+            msg_bytes = ("#" + user + ":").getBytes(StandardCharsets.UTF_8);
+            byte[] encrypted = null;
+            byte[] clear = msg.getBytes(StandardCharsets.UTF_8);
+            String decrypted_back;
+            try {
+                encrypted = encrypt(recipient, clear);
+                decrypted_back = decrypt(recipient, encrypted);
+            } catch (Exception e) {
+                System.out.println("what in send from encrypt: " + e);
+                return;
+            }
+            System.out.println("encrypted = " + Arrays.toString(encrypted));
+            System.out.println("decrypted_back = " + decrypted_back);
+            int nickcolonlen = msg_bytes.length;
+            msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + encrypted.length);
+            System.arraycopy(encrypted, 0, msg_bytes, nickcolonlen, encrypted.length);
+        }
+
+        //todo 528chars max command len per docs page11
+        StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
+        for (byte b : msg_bytes) {
+            cmd.append(String.format("%02x", b));
+        }
+
+        send(cmd.toString());
+
+        db_msg = new Message(user, recipient, msg);
+        db.messageDao().insert(db_msg);
+
+        if ( (openChat.chat == null && user == null) || ((openChat.chat != null && user != null) && openChat.chat.equals(user)) ) {
+            openChat.msgAdapter.msgs.add(db_msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
+        }
+        else if (openChat.chat.equals(user)) {
+            openChat.msgAdapter.msgs.add(db_msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
         }
     }
 
@@ -283,7 +309,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public void setContext(Context context) {
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
-        db.messageDao().insert(new Message("kielecki", null, "smierc winiarskim gnidom"));
+        db.messageDao().insert(new Message("kielecki", "e", "death to all the other letters"));
+        if (db.chatDao().getChat("e") == null) {
+            db.chatDao().insert(new Chat("e", "bajojajobajojajo".getBytes(StandardCharsets.UTF_8)));
+        }
     }
 
     public void setOpenChat(MsgFragment chat) {
@@ -423,42 +452,39 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 currentChar += (byte) (hex.getBytes()[i+1] - 'A' + 10);
             }
 
-            result[i] = currentChar;
+            result[i/2] = currentChar;
         }
         return result;
     }
 
-    byte[] encrypt(String chat, String text) throws Exception {
+    byte[] encrypt(String chat, byte[] text) throws Exception {
+        int clearlen = text.length/16*16 + ((int)Math.ceil(text.length/16.0))*16;
+        text = Arrays.copyOf(text, clearlen);
         Cipher encodeCipher = getCiphers(chat)[0];
-        byte[] clear = text.getBytes(StandardCharsets.UTF_8);
-        return encodeCipher.doFinal(clear);
+        return encodeCipher.doFinal(text);
     }
 
     String decrypt(String chat, byte[] text) throws Exception {
         Cipher decodeCipher = getCiphers(chat)[1];
         byte[] clear = decodeCipher.doFinal(text);
+        int reallen = clear.length;
+        for (; clear[reallen-1] != 0; reallen--);
+        clear = Arrays.copyOf(clear, reallen);
         return new String(clear, StandardCharsets.UTF_8);
     }
 
     Cipher[] getCiphers(String chat) throws Exception {
-        if (!ciphers.containsKey(chat)) {
-            Chat chatobj = db.chatDao().getChat(chat);
-            if (chatobj == null) {
-                throw new Exception("no saved key for chat " + chat);
-            }
-
-            try {
-                Cipher encryptCipher = Cipher.getInstance("AES_128/CBC/NoPadding");
-                encryptCipher.init(Cipher.ENCRYPT_MODE, chatobj.key);
-                Cipher decryptCipher = Cipher.getInstance("AES_128/CBC/NoPadding");
-                encryptCipher.init(Cipher.DECRYPT_MODE, chatobj.key);
-//                secretKeyFactory = SecretKeyFactory.getInstance("AES");
-                ciphers.put(chat, new Cipher[]{encryptCipher, decryptCipher});
-            } catch (NoSuchAlgorithmException | NoSuchPaddingException e) {
-                System.out.println("what in getCiphers: " + e);
-            }
+        Chat chatobj = db.chatDao().getChat(chat);
+        if (chatobj == null) {
+            throw new Exception("no saved key for chat " + chat);
         }
-        return ciphers.get(chat);
+
+        Cipher encryptCipher = Cipher.getInstance("AES_128/ECB/NoPadding");
+        encryptCipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(chatobj.key, "AES"));
+        Cipher decryptCipher = Cipher.getInstance("AES_128/ECB/NoPadding");
+        decryptCipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(chatobj.key, "AES"));
+        ciphers.put(chat, new Cipher[]{encryptCipher, decryptCipher});
+        return new Cipher[]{encryptCipher, decryptCipher};
     }
 
 }

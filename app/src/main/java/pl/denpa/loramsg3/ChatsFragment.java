@@ -69,7 +69,7 @@ public class ChatsFragment extends ListFragment {
     public void onListItemClick(@NonNull ListView l, @NonNull View v, int position, long id) {
         ListItem item = listItems.get(position-1);
         Bundle args = new Bundle();
-        args.putString("user", item.chat);
+        args.putString("chat", item.chat);
         MsgFragment fragment = new MsgFragment();
         fragment.setArguments(args);
 //        msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
@@ -86,6 +86,7 @@ public class ChatsFragment extends ListFragment {
 
     void refresh() {
         listItems.clear();
+        System.out.println("msgStore.getConversations()" + msgStore.getConversations());
         for(String conversation : msgStore.getConversations()) {
             listItems.add(new ChatsFragment.ListItem(conversation));
         }
