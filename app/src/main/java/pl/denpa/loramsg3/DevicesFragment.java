@@ -2,6 +2,7 @@ package pl.denpa.loramsg3;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbManager;
 import android.os.Bundle;
@@ -9,6 +10,8 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.ListFragment;
+import androidx.preference.PreferenceManager;
+
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -68,6 +71,9 @@ public class DevicesFragment extends ListFragment {
         };
         msgStore = MsgStore.getInstance();
         msgStore.setContext(getActivity());
+        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        msgStore.baudRate = Integer.parseInt(sharedPref.getString("baudrate", null));
+        msgStore.nick = sharedPref.getString("nick", null);
     }
 
     @Override

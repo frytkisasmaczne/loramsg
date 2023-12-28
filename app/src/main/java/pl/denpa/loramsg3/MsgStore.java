@@ -323,6 +323,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     public void askForPermission() throws Exception {
+        System.out.println("askForPermission() deviceId="+deviceId+" portNum="+portNum+" baudRate="+baudRate);
         if (deviceId == -1 || portNum == -1 || baudRate == -1 || context == null) {
             throw new Exception("device not set");
         }
