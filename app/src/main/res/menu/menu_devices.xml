@@ -2,14 +2,6 @@
 <menu xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/refresh"
-        android:icon="@android:drawable/stat_notify_sync_noanim"
-        android:title="Refresh devices"
-        app:showAsAction="ifRoom" />
-    <item
-        android:id="@+id/baud_rate"
-        android:title="Baud rate" />
-    <item
-        android:id="@+id/read_mode"
-        android:title="Read mode" />
+        android:id="@+id/preferences"
+        android:title="Preferences" />
 </menu>

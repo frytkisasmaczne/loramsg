@@ -22,9 +22,7 @@ import com.hoho.android.usbserial.driver.UsbSerialProber;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +30,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.crypto.Cipher;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -44,7 +41,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
-    private int deviceId, portNum, baudRate = -1;
+    public int deviceId, portNum, baudRate = -1;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private SerialInputOutputManager usbIoManager;
@@ -55,7 +52,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     AppDatabase db = null;
     public MsgFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
-    public String user = "kielecki";
+    public String nick = "kielecki";
     public HashMap<String, Cipher[]> ciphers = new HashMap<>();
     //ciphers[i][0] = encryptCipher; ciphers[i][1] = decryptCipher;
     private SecretKeyFactory secretKeyFactory;
@@ -238,12 +235,12 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         byte[] msg_bytes = null;
 
         if (recipient == null) {
-            String protomsg = user + ":" + msg;
+            String protomsg = nick + ":" + msg;
             msg_bytes = protomsg.getBytes(StandardCharsets.UTF_8);
         }
         else {
             System.out.println("sure is priv for " + recipient);
-            msg_bytes = ("#" + user + ":").getBytes(StandardCharsets.UTF_8);
+            msg_bytes = ("#" + nick + ":").getBytes(StandardCharsets.UTF_8);
             byte[] encrypted = null;
             byte[] clear = msg.getBytes(StandardCharsets.UTF_8);
             String decrypted_back;
@@ -269,10 +266,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
         send(cmd.toString());
 
-        db_msg = new Message(user, recipient, msg);
+        db_msg = new Message(nick, recipient, msg);
         db.messageDao().insert(db_msg);
 
-        if ( (openChat.chat == null && user == null) || ((openChat.chat != null && user != null) && openChat.chat.equals(user)) ) {
+        if ( (openChat.chat == null && nick == null) || ((openChat.chat != null && nick != null) && openChat.chat.equals(nick)) ) {
             openChat.msgAdapter.msgs.add(db_msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
             int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
@@ -281,7 +278,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
             }
         }
-        else if (openChat.chat.equals(user)) {
+        else if (openChat.chat.equals(nick)) {
             openChat.msgAdapter.msgs.add(db_msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
             int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
@@ -307,6 +304,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     public void setContext(Context context) {
+        System.out.println("MsgStore.setContext()");
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
         db.messageDao().insert(new Message("kielecki", "e", "death to all the other letters"));
@@ -319,10 +317,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         openChat = chat;
     }
 
-    public void setDevice(int deviceId, int portNum, int baudRate) {
+    public void setDevice(int deviceId, int portNum) {
         this.deviceId = deviceId;
         this.portNum = portNum;
-        this.baudRate = baudRate;
     }
 
     public void askForPermission() throws Exception {

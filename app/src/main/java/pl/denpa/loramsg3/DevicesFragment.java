@@ -41,8 +41,6 @@ public class DevicesFragment extends ListFragment {
 
     private final ArrayList<ListItem> listItems = new ArrayList<>();
     private ArrayAdapter<ListItem> listAdapter;
-    private int baudRate = 9600;
-    private boolean withIoManager = true;
     private MsgStore msgStore = null;
 
     @Override
@@ -69,6 +67,7 @@ public class DevicesFragment extends ListFragment {
             }
         };
         msgStore = MsgStore.getInstance();
+        msgStore.setContext(getActivity());
     }
 
     @Override
@@ -96,30 +95,8 @@ public class DevicesFragment extends ListFragment {
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
-        if(id == R.id.refresh) {
-            refresh();
-            return true;
-        } else if (id ==R.id.baud_rate) {
-            final String[] values = getResources().getStringArray(R.array.baud_rates);
-            int pos = java.util.Arrays.asList(values).indexOf(String.valueOf(baudRate));
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle("Baud rate");
-            builder.setSingleChoiceItems(values, pos, (dialog, which) -> {
-                baudRate = Integer.parseInt(values[which]);
-                dialog.dismiss();
-            });
-            builder.create().show();
-            return true;
-        } else if (id ==R.id.read_mode) {
-            final String[] values = getResources().getStringArray(R.array.read_modes);
-            int pos = withIoManager ? 0 : 1; // read_modes[0]=event/io-manager, read_modes[1]=direct
-            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-            builder.setTitle("Read mode");
-            builder.setSingleChoiceItems(values, pos, (dialog, which) -> {
-                withIoManager = (which == 0);
-                dialog.dismiss();
-            });
-            builder.create().show();
+        if(id == R.id.preferences) {
+            getFragmentManager().beginTransaction().replace(R.id.fragment, new PreferencesFragment()).addToBackStack(null).commit();
             return true;
         } else {
             return super.onOptionsItemSelected(item);
@@ -155,8 +132,7 @@ public class DevicesFragment extends ListFragment {
         } else {
             ChatsFragment fragment = new ChatsFragment();
             try {
-                msgStore.setContext(getActivity());
-                msgStore.setDevice(item.device.getDeviceId(), item.port, baudRate);
+                msgStore.setDevice(item.device.getDeviceId(), item.port);
                 msgStore.askForPermission();
             } catch (Exception e) {
                 Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();

@@ -17,10 +17,12 @@ public class MainActivity extends AppCompatActivity implements FragmentManager.O
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportFragmentManager().addOnBackStackChangedListener(this);
-        if (savedInstanceState == null)
+        if (savedInstanceState == null) {
             getSupportFragmentManager().beginTransaction().add(R.id.fragment, new DevicesFragment(), "devices").commit();
-        else
+        }
+        else {
             onBackStackChanged();
+        }
         msgStore = MsgStore.getInstance();
     }
 

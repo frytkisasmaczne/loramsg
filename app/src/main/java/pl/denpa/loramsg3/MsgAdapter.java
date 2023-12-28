@@ -26,7 +26,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
             super(view);
             System.out.println("ViewHolder()");
             // Define click listener for the ViewHolder's View
-            textView = (TextView) view.findViewById(R.id.textView);
+            textView = view.findViewById(R.id.textView);
         }
 
         public TextView getTextView() {
