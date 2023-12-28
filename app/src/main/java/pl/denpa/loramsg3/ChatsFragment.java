@@ -1,78 +1,47 @@
 package pl.denpa.loramsg3;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 import androidx.fragment.app.ListFragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 
-public class ChatsFragment extends ListFragment {
+public class ChatsFragment extends Fragment {
+    private final Handler mainLooper;
+    private MsgStore msgStore;
+    public RecyclerView recyclerView;
+    public ChatsAdapter chatsAdapter = new ChatsAdapter(this);
 
-    static class ListItem {
-        String chat;
-//        String lastMessage;
-
-        ListItem(String chat/*, String lastMessage*/) {
-            this.chat = chat;
-//            this.lastMessage = lastMessage;
-        }
+    public ChatsFragment() {
+        msgStore = MsgStore.getInstance();
+        mainLooper = new Handler(Looper.getMainLooper());
     }
-
-    private final ArrayList<ListItem> listItems = new ArrayList<>();
-    private ArrayAdapter<ListItem> listAdapter;
-    private MsgStore msgStore = null;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
-        listAdapter = new ArrayAdapter<ListItem>(getActivity(), 0, listItems) {
-            @NonNull
-            @Override
-            public View getView(int position, View view, @NonNull ViewGroup parent) {
-                ListItem item = listItems.get(position);
-                if (view == null)
-                    view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
-                TextView text1 = view.findViewById(R.id.text1);
-                TextView text2 = view.findViewById(R.id.text2);
-                if (item.chat == null) {
-                    text1.setText("BROADCAST");
-                } else {
-                    text1.setText(item.chat);
-                }
-//                text2.setText(item.lastMessage);
-                return view;
-            }
-        };
-        msgStore = MsgStore.getInstance();
-
+        setRetainInstance(true);
     }
 
-    @Override
-    public void onActivityCreated(Bundle savedInstanceState) {
-        super.onActivityCreated(savedInstanceState);
-        setListAdapter(null);
-        View header = getActivity().getLayoutInflater().inflate(R.layout.device_list_header, null, false);
-        getListView().addHeaderView(header, null, false);
-        setEmptyText("<no chats>");
-        ((TextView) getListView().getEmptyView()).setTextSize(18);
-        setListAdapter(listAdapter);
-    }
-
-    @Override
-    public void onListItemClick(@NonNull ListView l, @NonNull View v, int position, long id) {
-        ListItem item = listItems.get(position-1);
+    public void chatClicked(String chat) {
         Bundle args = new Bundle();
-        args.putString("chat", item.chat);
+        args.putString("chat", chat);
         MsgFragment fragment = new MsgFragment();
         fragment.setArguments(args);
-//        msgStore.connect(getActivity(), fragment, item.device.getDeviceId(), item.port, baudRate);
         System.out.println("starting terminal fragment");
         getFragmentManager().beginTransaction().replace(R.id.fragment, fragment, "msg").addToBackStack(null).commit();
     }
@@ -81,16 +50,19 @@ public class ChatsFragment extends ListFragment {
     public void onResume() {
         super.onResume();
         msgStore.restoreConnection();
-        refresh();
+        chatsAdapter.refresh();
     }
 
-    void refresh() {
-        listItems.clear();
-        System.out.println("msgStore.getConversations()" + msgStore.getConversations());
-        for(String conversation : msgStore.getConversations()) {
-            listItems.add(new ChatsFragment.ListItem(conversation));
-        }
-        listAdapter.notifyDataSetChanged();
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+        System.out.println("ChatsFragment.onCreateView()");
+        View view = inflater.inflate(R.layout.chats_fragment, container, false);
+        recyclerView = view.findViewById(R.id.recycler_view);
+        recyclerView.setAdapter(chatsAdapter);
+        LinearLayoutManager llm = new LinearLayoutManager(getActivity());
+        llm.setOrientation(LinearLayoutManager.VERTICAL);
+        recyclerView.setLayoutManager(llm);
+        return view;
     }
 
 }
