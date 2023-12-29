@@ -29,10 +29,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.SecretKeySpec;
+
+import kotlin.random.Random;
 
 public class MsgStore implements SerialInputOutputManager.Listener {
 
@@ -54,6 +57,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private Context context = null;
     AppDatabase db = null;
     public SecondFragment openChat = null;
+    public FirstFragment chatsFragment = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
     public String nick = "kielecki";
     public HashMap<String, Cipher[]> ciphers = new HashMap<>();
@@ -107,17 +111,17 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             System.out.println("pong");
             send("AT+MODE=TEST");
         }
-        else if (command.toString().equals("+MODE: TEST")) {
+        else if (command.equals("+MODE: TEST")) {
             send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
         }
-        else if (command.toString().startsWith("+TEST: RFCFG ")) {
+        else if (command.startsWith("+TEST: RFCFG ")) {
             send("AT+TEST=RXLRPKT");
         }
-        else if (command.toString().equals("+TEST: RXLRPKT")) {
+        else if (command.equals("+TEST: RXLRPKT")) {
             System.out.println("connected = true");
             connected = true;
         }
-        else if (command.toString().equals("+TEST: TX DONE")) {
+        else if (command.equals("+TEST: TX DONE")) {
             send("AT+TEST=RXLRPKT");
         }
         else {
@@ -197,7 +201,18 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //            conversations.add(new String[]{recipient, chats.get(recipient).get(chats.size()-1)[0] + ": " + chats.get(recipient).get(chats.size()-1)[1]});
 //        }
 //        return conversations;
-        return db.messageDao().getAllPrivUsers();
+        return db.chatDao().getAllChats().stream().map((chat) -> chat.chat).collect(Collectors.toList());
+    }
+
+    public void addChat(String chat, byte[] key) {
+        db.chatDao().upsert(new Chat(chat, key));
+    }
+
+    public void createChat(String chat) {
+        byte[] key = new byte[16];
+        Random.Default.nextBytes(key);
+        addChat(chat, key);
+        Toast.makeText(context, chat, Toast.LENGTH_SHORT).show();
     }
 
     /*
@@ -311,10 +326,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         System.out.println("MsgStore.setContext()");
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
-        db.messageDao().insert(new Message("kielecki", "e", "death to all the other letters"));
-        if (db.chatDao().getChat("e") == null) {
-            db.chatDao().insert(new Chat("e", "bajojajobajojajo".getBytes(StandardCharsets.UTF_8)));
-        }
+//        db.messageDao().insert(new Message("kielecki", "e", "death to all the other letters"));
+//        if (db.chatDao().getChat("e") == null) {
+//            db.chatDao().upsert(new Chat("e", "bajojajobajojajo".getBytes(StandardCharsets.UTF_8)));
+//        }
         nick = getNick();
         baudrate = getBaudrate();
     }

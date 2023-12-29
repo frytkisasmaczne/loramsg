@@ -50,40 +50,36 @@ public class FirstFragment extends Fragment implements OnItemClickListener {
                 if (view == null)
                     view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
                 TextView text1 = view.findViewById(R.id.text1);
-                TextView text2 = view.findViewById(R.id.text2);
-                if (item.chat == null) {
-                    text1.setText("BROADCAST");
-                } else {
+//                TextView text2 = view.findViewById(R.id.text2);
+//                if (item.chat == null) {
+//                    text1.setText("BROADCAST");
+//                } else {
                     text1.setText(item.chat);
-                }
+//                }
 //                text2.setText(item.lastMessage);
                 return view;
             }
         };
 
-        binding.fab.setOnClickListener(view -> Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                .setAction("Action", null).show());
+        binding.fab.setOnClickListener(view -> {
+            NewChatDialog newChatDialog = new NewChatDialog();
+            newChatDialog.show(getActivity().getSupportFragmentManager(), "newchatdialog");
+        });
 
         ListView listview = binding.list;
         listview.setOnItemClickListener(this);
-        View header = getActivity().getLayoutInflater().inflate(R.layout.device_list_header, null, false);
-        listview.addHeaderView(header, null, false);
+        View header = getActivity().getLayoutInflater().inflate(R.layout.device_list_header, listview, false);
+
+        listview.addHeaderView(header, new ListItem(null), true);
         listview.setAdapter(listAdapter);
+        msgStore.chatsFragment = this;
         refresh();
         return binding.getRoot();
     }
 
-    public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-
-//        binding.buttonFirst.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                NavHostFragment.findNavController(FirstFragment.this)
-//                        .navigate(R.id.action_FirstFragment_to_SecondFragment);
-//            }
-//        });
-    }
+//    public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
+//        super.onViewCreated(view, savedInstanceState);
+//    }
 
     @Override
     public void onDestroyView() {
@@ -108,6 +104,13 @@ public class FirstFragment extends Fragment implements OnItemClickListener {
         }
     }
 
+    public void navigateToChat(String chat) {
+        Bundle bundle = new Bundle();
+        System.out.println("moving to second fragment chat= " + chat);
+        bundle.putString("chat", chat);
+        NavHostFragment.findNavController(FirstFragment.this).navigate(R.id.action_FirstFragment_to_SecondFragment, bundle);
+    }
+
     void refresh() {
         listItems.clear();
         System.out.println("msgStore.getConversations() = " + msgStore.getConversations());
@@ -119,15 +122,17 @@ public class FirstFragment extends Fragment implements OnItemClickListener {
 
     @Override
     public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-        Bundle bundle = new Bundle();
-        System.out.println("moving to second fragment chat= " + listItems.get(i-1).chat);
-        bundle.putString("chat", listItems.get(i-1).chat);
+        System.out.println("FirstFragment.onItemClick(i=" + i + ")");
         try {
             msgStore.askForPermission();
         } catch (Exception e) {
             Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_LONG).show();
         }
-        NavHostFragment.findNavController(FirstFragment.this).navigate(R.id.action_FirstFragment_to_SecondFragment, bundle);
+        if (i == 0) {
+            navigateToChat(null);
+        } else {
+            navigateToChat(listItems.get(i-1).chat);
+        }
     }
 
     static class ListItem {

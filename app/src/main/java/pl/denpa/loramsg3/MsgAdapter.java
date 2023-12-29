@@ -24,7 +24,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
 
         public ViewHolder(View view) {
             super(view);
-            System.out.println("ViewHolder()");
+//            System.out.println("ViewHolder()");
             // Define click listener for the ViewHolder's View
             textView = view.findViewById(R.id.textView);
         }
@@ -40,7 +40,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
         // Create a new view, which defines the UI of the list item
         View view = LayoutInflater.from(viewGroup.getContext())
                 .inflate(R.layout.msg_list_item, viewGroup, false);
-        System.out.println("onCreateViewHolder");
+//        System.out.println("onCreateViewHolder");
 
         return new ViewHolder(view);
     }
@@ -54,7 +54,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
 //        Message msg = db.messageDao().getPrivConversation(openChat.chat).get(position);
         Message msg = msgs.get(position);
         viewHolder.getTextView().setText(msg.author + ": " + msg.text);
-        System.out.println(msg.author + ": " + msg.text);
+//        System.out.println(msg.author + ": " + msg.text);
     }
 
     // Return the size of your dataset (invoked by the layout manager)
