@@ -1,6 +1,5 @@
 package pl.denpa.loramsg3;
 
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.hardware.usb.UsbDevice;
@@ -8,7 +7,6 @@ import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
 import androidx.fragment.app.ListFragment;
 import androidx.preference.PreferenceManager;
 
@@ -59,12 +57,13 @@ public class DevicesFragment extends ListFragment {
                     view = getActivity().getLayoutInflater().inflate(R.layout.device_list_item, parent, false);
                 TextView text1 = view.findViewById(R.id.text1);
                 TextView text2 = view.findViewById(R.id.text2);
-                if(item.driver == null)
+                if(item.driver == null) {
                     text1.setText("<no driver>");
-                else if(item.driver.getPorts().size() == 1)
+                } else if(item.driver.getPorts().size() == 1) {
                     text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver",""));
-                else
+                } else {
                     text1.setText(item.driver.getClass().getSimpleName().replace("SerialDriver","")+", Port "+item.port);
+                }
                 text2.setText(String.format(Locale.US, "Vendor %04X, Product %04X", item.device.getVendorId(), item.device.getProductId()));
                 return view;
             }
@@ -72,7 +71,7 @@ public class DevicesFragment extends ListFragment {
         msgStore = MsgStore.getInstance();
         msgStore.setContext(getActivity());
         SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        msgStore.baudRate = Integer.parseInt(sharedPref.getString("baudrate", null));
+        msgStore.baudrate = Integer.parseInt(sharedPref.getString("baudrate", null));
         msgStore.nick = sharedPref.getString("nick", null);
     }
 
@@ -102,7 +101,7 @@ public class DevicesFragment extends ListFragment {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if(id == R.id.preferences) {
-            getFragmentManager().beginTransaction().replace(R.id.fragment, new PreferencesFragment()).addToBackStack(null).commit();
+            getFragmentManager().beginTransaction().replace(R.id.nav_host_fragment_content_main, new PreferencesFragment()).addToBackStack(null).commit();
             return true;
         } else {
             return super.onOptionsItemSelected(item);
@@ -138,7 +137,7 @@ public class DevicesFragment extends ListFragment {
         } else {
             ChatsFragment fragment = new ChatsFragment();
             try {
-                msgStore.setDevice(item.device.getDeviceId(), item.port);
+//                msgStore.setDevice(item.device.getDeviceId(), item.port);
                 msgStore.askForPermission();
             } catch (Exception e) {
                 Toast.makeText(getContext(), e.getMessage(), Toast.LENGTH_SHORT).show();

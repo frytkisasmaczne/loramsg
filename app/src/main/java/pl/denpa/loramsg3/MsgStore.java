@@ -24,6 +24,7 @@ import com.hoho.android.usbserial.util.SerialInputOutputManager;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -41,7 +42,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
-    public int deviceId, portNum, baudRate = -1;
+    public int deviceId;
+    public int portNum = 0;
+    public int baudrate = -1;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private SerialInputOutputManager usbIoManager;
@@ -50,7 +53,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private boolean connected = false;
     private Context context = null;
     AppDatabase db = null;
-    public MsgFragment openChat = null;
+    public SecondFragment openChat = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
     public String nick = "kielecki";
     public HashMap<String, Cipher[]> ciphers = new HashMap<>();
@@ -173,6 +176,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     void receivePrivMsg(String author, String text) {
+        System.out.println("receivePrivMsg(" + author + ", " + text +")");
         Message msg = new Message(author, author, text);
         db.messageDao().insert();
         if (author.equals(openChat.chat)) {
@@ -268,8 +272,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
         db_msg = new Message(nick, recipient, msg);
         db.messageDao().insert(db_msg);
-
-        if ( (openChat.chat == null && nick == null) || ((openChat.chat != null && nick != null) && openChat.chat.equals(nick)) ) {
+        System.out.println("asdf" + openChat.chat + " " + nick);
+        if ( (openChat.chat == null && recipient == null) || ((openChat.chat != null && recipient != null) && openChat.chat.equals(recipient)) ) {
             openChat.msgAdapter.msgs.add(db_msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
             int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
@@ -278,7 +282,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
             }
         }
-        else if (openChat.chat.equals(nick)) {
+        else if (openChat.chat.equals(recipient)) {
             openChat.msgAdapter.msgs.add(db_msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
             int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
@@ -311,32 +315,67 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         if (db.chatDao().getChat("e") == null) {
             db.chatDao().insert(new Chat("e", "bajojajobajojajo".getBytes(StandardCharsets.UTF_8)));
         }
+        nick = getNick();
+        baudrate = getBaudrate();
     }
 
-    public void setOpenChat(MsgFragment chat) {
+    public void setOpenChat(SecondFragment chat) {
         openChat = chat;
     }
 
-    public void setDevice(int deviceId, int portNum) {
-        this.deviceId = deviceId;
-        this.portNum = portNum;
+    public void setNick(String nick) {
+        this.nick = nick;
+        db.bloatDao().upsert(new Bloat("nick", nick));
     }
 
-    public void askForPermission() throws Exception {
-        System.out.println("askForPermission() deviceId="+deviceId+" portNum="+portNum+" baudRate="+baudRate);
-        if (deviceId == -1 || portNum == -1 || baudRate == -1 || context == null) {
+    public String getNick() {
+        if (db.bloatDao().getValue("nick") == null) {
+            db.bloatDao().upsert(new Bloat("nick", "e"));
+        }
+        return (String) db.bloatDao().getValue("nick");
+    }
+
+    public void setBaudrate(int baudrate) {
+        this.baudrate = baudrate;
+        db.bloatDao().upsert(new Bloat("baudrate", String.valueOf(baudrate)));
+    }
+
+    public int getBaudrate() {
+        if (db.bloatDao().getValue("baudrate") == null) {
+            db.bloatDao().upsert(new Bloat("baudrate", "9600"));
+        }
+        return Integer.parseInt(db.bloatDao().getValue("baudrate"));
+    }
+
+    public int[] getDevice() throws Exception {
+        if (db.bloatDao().getValue("deviceId") == null || db.bloatDao().getValue("portNum") == null) {
             throw new Exception("device not set");
         }
+        return new int[]{Integer.parseInt(db.bloatDao().getValue("deviceId")), Integer.parseInt(db.bloatDao().getValue("portNum"))};
+    }
+
+//    public void setDevice(int deviceId, int portNum) {
+//        this.deviceId = deviceId;
+//        this.portNum = portNum;
+//        db.bloatDao().upsert(new Bloat("deviceId", String.valueOf(deviceId)));
+//        db.bloatDao().upsert(new Bloat("portNum", String.valueOf(portNum)));
+//    }
+
+    public void askForPermission() throws Exception {
+//        System.out.println("askForPermission() deviceId="+deviceId+" portNum="+portNum+" baudRate="+ baudrate);
+//        if (deviceId == -1 || portNum == -1 || baudrate == -1 || context == null) {
+//            throw new Exception("device not set");
+//        }
         context.registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
 
         UsbDevice device = null;
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-        for(UsbDevice v : usbManager.getDeviceList().values())
-            if(v.getDeviceId() == deviceId)
-                device = v;
-        if(device == null) {
+        Collection<UsbDevice> devlist= usbManager.getDeviceList().values();
+        if (devlist.size() <= 0) {
             throw new Exception("connection failed: device not found");
         }
+        System.out.println("devlist= " + devlist);
+        device = (UsbDevice) devlist.toArray()[0];
         UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
         if(driver == null) {
             driver = CustomProber.getCustomProber().probeDevice(device);
@@ -344,10 +383,11 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         if(driver == null) {
             throw new Exception("connection failed: no driver for device");
         }
-        if(driver.getPorts().size() < portNum) {
+        System.out.println("ports= " + driver.getPorts());
+        if(driver.getPorts().size() < 1) {
             throw new Exception("connection failed: not enough ports at device");
         }
-        usbSerialPort = driver.getPorts().get(portNum);
+        usbSerialPort = driver.getPorts().get(0);
         UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
         if(usbConnection == null && !usbManager.hasPermission(driver.getDevice())) {
             usbPermission = MsgStore.UsbPermission.Requested;
@@ -355,13 +395,14 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
             usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
         } else {
+            deviceId = device.getDeviceId();
             connect();
         }
     }
 
     private void connect() throws Exception {
         System.out.println("connect()");
-        if (deviceId == -1 || portNum == -1 || baudRate == -1) {
+        if (deviceId == -1 || portNum == -1 || baudrate == -1) {
             throw new Exception("device not set");
         }
 //        Toast.makeText(context, "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
@@ -394,7 +435,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         try {
             usbSerialPort.open(usbConnection);
             try{
-                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
+                usbSerialPort.setParameters(baudrate, 8, 1, UsbSerialPort.PARITY_NONE);
             }catch (UnsupportedOperationException e){
                 System.out.println("not supported setparameters");
             }

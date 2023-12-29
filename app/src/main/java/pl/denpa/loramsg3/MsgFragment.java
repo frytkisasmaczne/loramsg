@@ -42,7 +42,7 @@ public class MsgFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        msgStore.setOpenChat(this);
+//        msgStore.setOpenChat(this);
         msgStore.restoreConnection();
     }
 

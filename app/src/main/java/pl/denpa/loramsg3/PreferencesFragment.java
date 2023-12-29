@@ -20,16 +20,17 @@ public class PreferencesFragment extends PreferenceFragmentCompat {
         Preference nick = findPreference("nick");
         baud.setOnPreferenceChangeListener(onChange);
         nick.setOnPreferenceChangeListener(onChange);
-        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
-        baud.setSummary(sharedPref.getString("baudrate", null));
-        nick.setSummary(sharedPref.getString("nick", null));
+//        SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        System.out.println("PreferencesFragment.onCreatePreferences() " + msgStore.getBaudrate() + " " +msgStore.getNick());
+        baud.setSummary(String.valueOf(msgStore.getBaudrate()));
+        nick.setSummary(msgStore.getNick());
     }
 
     private Preference.OnPreferenceChangeListener onChange = (preference, newValue) -> {
         if ("baudrate".equals(preference.getKey())) {
-            msgStore.baudRate = Integer.parseInt((String)newValue);
+            msgStore.setBaudrate(Integer.parseInt((String)newValue));
         } else if ("nick".equals(preference.getKey())) {
-            msgStore.nick = (String) newValue;
+            msgStore.setNick((String)newValue);
         } else {
             return false;
         }
