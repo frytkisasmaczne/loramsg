@@ -55,7 +55,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private UsbPermission usbPermission = UsbPermission.Unknown;
     private boolean connected = false;
     private Context context = null;
-    AppDatabase db = null;
+    public AppDatabase db = null;
     public SecondFragment openChat = null;
     public FirstFragment chatsFragment = null;
     private final StringBuilder receiveBuffer = new StringBuilder();

@@ -4,6 +4,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -31,6 +34,7 @@ public class SecondFragment extends Fragment {
             LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState
     ) {
+        setHasOptionsMenu(true);
         System.out.println("SecondFragment.onCreateView()");
         binding = FragmentSecondBinding.inflate(inflater, container, false);
 
@@ -63,6 +67,23 @@ public class SecondFragment extends Fragment {
 //                        .navigate(R.id.action_SecondFragment_to_FirstFragment);
 //            }
 //        });
+    }
+
+    @Override
+    public void onCreateOptionsMenu(@NonNull Menu menu, MenuInflater inflater) {
+        inflater.inflate(R.menu.menu_msg, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if(id == R.id.show_qr) {
+            NavHostFragment.findNavController(SecondFragment.this).navigate(R.id.action_FirstFragment_to_preferencesFragment);
+//            getFragmentManager().beginTransaction().replace(R.id.nav_host_fragment_content_main, new PreferencesFragment()).addToBackStack(null).commit();
+            return true;
+        } else {
+            return super.onOptionsItemSelected(item);
+        }
     }
 
     @Override
