@@ -82,7 +82,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                             ? UsbPermission.Granted : UsbPermission.Denied;
                     if (usbPermission == UsbPermission.Granted) {
                         try {
-                            connect();
+//                            connect();
+                            askForPermission();
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
@@ -172,20 +173,30 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     void receiveBroadcastMsg(String author, String text) {
         Message msg = new Message(author, null, text);
-        db.messageDao().insert();
+        db.messageDao().insert(msg);
         if (openChat.chat == null) {
             openChat.msgAdapter.msgs.add(msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
         }
     }
 
     void receivePrivMsg(String author, String text) {
         System.out.println("receivePrivMsg(" + author + ", " + text +")");
         Message msg = new Message(author, author, text);
-        db.messageDao().insert();
+        db.messageDao().insert(msg);
         if (author.equals(openChat.chat)) {
             openChat.msgAdapter.msgs.add(msg);
             openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
         }
     }
 
@@ -377,6 +388,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //    }
 
     public void askForPermission() throws Exception {
+        System.out.println("askForPermission()");
 //        System.out.println("askForPermission() deviceId="+deviceId+" portNum="+portNum+" baudRate="+ baudrate);
 //        if (deviceId == -1 || portNum == -1 || baudrate == -1 || context == null) {
 //            throw new Exception("device not set");
@@ -512,7 +524,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     byte[] encrypt(String chat, byte[] text) throws Exception {
-        int clearlen = text.length/16*16 + ((int)Math.ceil(text.length/16.0))*16;
+        int clearlen = ((int)Math.ceil(text.length/16.0))*16;
+
         text = Arrays.copyOf(text, clearlen);
         Cipher encodeCipher = getCiphers(chat)[0];
         return encodeCipher.doFinal(text);

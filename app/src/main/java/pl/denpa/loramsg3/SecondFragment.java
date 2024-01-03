@@ -9,6 +9,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -47,11 +48,11 @@ public class SecondFragment extends Fragment {
         llm.setOrientation(LinearLayoutManager.VERTICAL);
         recyclerView.setLayoutManager(llm);
         recyclerView.scrollToPosition(msgAdapter.getItemCount() - 1);
-        TextView sendText = binding.getRoot().findViewById(R.id.send_text);
+        EditText sendText = binding.getRoot().findViewById(R.id.send_text);
         View sendBtn = binding.getRoot().findViewById(R.id.send_btn);
         sendBtn.setOnClickListener(v -> {
             send(sendText.getText().toString());
-            sendText.clearComposingText();
+            sendText.setText("");
         });
 
         return binding.getRoot();
@@ -78,8 +79,8 @@ public class SecondFragment extends Fragment {
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if(id == R.id.show_qr) {
-            NavHostFragment.findNavController(SecondFragment.this).navigate(R.id.action_FirstFragment_to_preferencesFragment);
-//            getFragmentManager().beginTransaction().replace(R.id.nav_host_fragment_content_main, new PreferencesFragment()).addToBackStack(null).commit();
+            ShowQrDialog showQrDialog = new ShowQrDialog();
+            showQrDialog.show(getActivity().getSupportFragmentManager(), "showqrdialog");
             return true;
         } else {
             return super.onOptionsItemSelected(item);

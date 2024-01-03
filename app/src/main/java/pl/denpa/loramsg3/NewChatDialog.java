@@ -16,6 +16,8 @@ import androidx.fragment.app.DialogFragment;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
 
+import java.util.Arrays;
+
 public class NewChatDialog extends DialogFragment {
 
     MsgStore msgStore = MsgStore.getInstance();
@@ -56,9 +58,9 @@ public class NewChatDialog extends DialogFragment {
             } else {
                 System.out.println("Scanned: " + result.getContents());
                 String text = result.getContents();
-                String[] nowsplit = text.split(":", 1);
-                if (nowsplit.length != 2 || nowsplit[0].length() == 0 || nowsplit[1].length() != 24) {
-                    System.out.println("scanned qr is not a chat");
+                String[] nowsplit = text.split(":", 2);
+                if (nowsplit.length != 2 || nowsplit[0].length() == 0 || nowsplit[1].length() != 25) {
+                    System.out.println("scanned qr is not a chat" + Arrays.toString(nowsplit) + nowsplit[1].length());
                     Toast.makeText(getContext(), "scanned qr is not a chat", Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -66,6 +68,7 @@ public class NewChatDialog extends DialogFragment {
                 String b64key = nowsplit[1];
                 msgStore.addChat(username, Base64.decode(b64key, Base64.DEFAULT));
                 msgStore.chatsFragment.navigateToChat(username);
+                NewChatDialog.this.dismiss();
             }
         });
 
