@@ -1,6 +1,5 @@
 package pl.denpa.loramsg3;
 
-import android.app.Fragment;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -14,22 +13,29 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
 
-import androidx.fragment.app.FragmentActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.room.Room;
 
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
-import com.hoho.android.usbserial.util.HexDump;
 import com.hoho.android.usbserial.util.SerialInputOutputManager;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import javax.crypto.Cipher;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.SecretKeySpec;
+
+import kotlin.random.Random;
 
 public class MsgStore implements SerialInputOutputManager.Listener {
 
@@ -39,8 +45,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private static final String INTENT_ACTION_GRANT_USB = BuildConfig.APPLICATION_ID + ".GRANT_USB";
     private static final int WRITE_WAIT_MILLIS = 2000;
     private static final int READ_WAIT_MILLIS = 2000;
-    private int deviceId, portNum, baudRate = -1;
-    private boolean withIoManager = true;
+    public int deviceId;
+    public int portNum = 0;
+    public int baudrate = -1;
     private final BroadcastReceiver broadcastReceiver;
     private final Handler mainLooper;
     private SerialInputOutputManager usbIoManager;
@@ -48,21 +55,25 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     private UsbPermission usbPermission = UsbPermission.Unknown;
     private boolean connected = false;
     private Context context = null;
-    AppDatabase db = null;
-    public TerminalFragment openChat = null;
+    public AppDatabase db = null;
+    public SecondFragment openChat = null;
+    public FirstFragment chatsFragment = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
-    public String user = "e";
+    public String nick = "kielecki";
+    public HashMap<String, Cipher[]> ciphers = new HashMap<>();
+    //ciphers[i][0] = encryptCipher; ciphers[i][1] = decryptCipher;
+    private SecretKeyFactory secretKeyFactory;
 
     public static MsgStore getInstance() {
-        System.out.println("just getinstance");
+        System.out.println("getInstance()");
         if (oneandonly == null) {
-            System.out.println("now constructing msgstore");
             oneandonly = new MsgStore();
         }
         return oneandonly;
     }
 
     private MsgStore() {
+        System.out.println("MsgStore() constructor");
         broadcastReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -71,7 +82,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                             ? UsbPermission.Granted : UsbPermission.Denied;
                     if (usbPermission == UsbPermission.Granted) {
                         try {
-                            connect();
+//                            connect();
+                            askForPermission();
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         }
@@ -87,7 +99,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         String decoded = new String(data, StandardCharsets.UTF_8);
         receiveBuffer.append(decoded);
         if (!receiveBuffer.toString().endsWith("\r\n")) return;
-        System.out.println("received " + receiveBuffer.toString());
+        System.out.println("received " + receiveBuffer);
         for (String command : receiveBuffer.toString().split("\r\n")) {
             receiveCommand(command);
         }
@@ -96,35 +108,61 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     private void receiveCommand(String command) {
         System.out.println("receiveCommand(" + command + ")");
-        if (command.toString().equals("+AT: OK")) {
+        if (command.equals("+AT: OK")) {
             System.out.println("pong");
             send("AT+MODE=TEST");
         }
-        else if (command.toString().equals("+MODE: TEST")) {
+        else if (command.equals("+MODE: TEST")) {
             send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
         }
-        else if (command.toString().startsWith("+TEST: RFCFG ")) {
+        else if (command.startsWith("+TEST: RFCFG ")) {
             send("AT+TEST=RXLRPKT");
         }
-        else if (command.toString().equals("+TEST: RXLRPKT")) {
-            System.out.println("connected == true");
+        else if (command.equals("+TEST: RXLRPKT")) {
+            System.out.println("connected = true");
             connected = true;
         }
-        else if (command.toString().equals("+TEST: TX DONE")) {
+        else if (command.equals("+TEST: TX DONE")) {
             send("AT+TEST=RXLRPKT");
         }
         else {
             Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
             if (protoMsg.find()) {
-                String decoded = hexStringToString(protoMsg.group(1));
+                byte[] pktbytes = hexStringTobyteArray(protoMsg.group(1));
+                String decoded = new String(pktbytes, StandardCharsets.UTF_8);
                 System.out.println("received lora packet " + decoded);
-                Matcher msgMatcher = Pattern.compile("(\\w):(.*)").matcher(decoded);
-                if (!msgMatcher.find()) return;
-                String author = msgMatcher.group(1);
-                String msg = msgMatcher.group(2);
-                db.messageDao().insert(new Message(author, null, msg));
-                if (openChat != null && openChat.recipient == null) {
-                    openChat.receive(msg);
+                if (decoded.startsWith("#")) {
+                    int colonIndex = 0;
+                    for (int i = 0; i < pktbytes.length; i++) {
+                        if (pktbytes[i] == ':') {
+                            colonIndex = i;
+                            break;
+                        }
+                    }
+                    if (colonIndex == 0) return;
+                    String author = new String(Arrays.copyOfRange(pktbytes, 1, colonIndex), StandardCharsets.UTF_8);
+                    byte[] encrypted = Arrays.copyOfRange(pktbytes, colonIndex+1, pktbytes.length);
+                    String clear;
+                    try {
+                        clear = decrypt(author, encrypted);
+                    } catch (Exception e) {
+                        System.out.println("what from decrypt in receiveCommand: " + e);
+                        return;
+                    }
+                    receivePrivMsg(author, clear);
+
+                } else {
+                    Matcher msgMatcher = Pattern.compile("(\\w*):(.*)").matcher(decoded);
+                    if (!msgMatcher.find()) return;
+                    String author = msgMatcher.group(1);
+                    String msg = msgMatcher.group(2);
+                    if ("".equals(author)) {
+                        author = null;
+                    }
+                    receiveBroadcastMsg(author, msg);
+//                if (openChat != null && openChat.chat == null) {
+//                    openChat.receive(msg);
+//                }
                 }
             }
             else {
@@ -133,11 +171,36 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         }
     }
 
+    void receiveBroadcastMsg(String author, String text) {
+        Message msg = new Message(author, null, text);
+        db.messageDao().insert(msg);
+        if (openChat.chat == null) {
+            openChat.msgAdapter.msgs.add(msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
+        }
+    }
+
+    void receivePrivMsg(String author, String text) {
+        System.out.println("receivePrivMsg(" + author + ", " + text +")");
+        Message msg = new Message(author, author, text);
+        db.messageDao().insert(msg);
+        if (author.equals(openChat.chat)) {
+            openChat.msgAdapter.msgs.add(msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
+        }
+    }
+
     public List<Message> getMessages(String chat) {
-//        if (chats.containsKey(user)) {
-//            return chats.get(user);
-//        }
-//        return null;
         return chat == null ? db.messageDao().getBroadcastConversation() : db.messageDao().getPrivConversation(chat);
     }
 
@@ -149,7 +212,18 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 //            conversations.add(new String[]{recipient, chats.get(recipient).get(chats.size()-1)[0] + ": " + chats.get(recipient).get(chats.size()-1)[1]});
 //        }
 //        return conversations;
-        return db.messageDao().getAllPrivUsers();
+        return db.chatDao().getAllChats().stream().map((chat) -> chat.chat).collect(Collectors.toList());
+    }
+
+    public void addChat(String chat, byte[] key) {
+        db.chatDao().upsert(new Chat(chat, key));
+    }
+
+    public void createChat(String chat) {
+        byte[] key = new byte[16];
+        Random.Default.nextBytes(key);
+        addChat(chat, key);
+        Toast.makeText(context, chat, Toast.LENGTH_SHORT).show();
     }
 
     /*
@@ -169,7 +243,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public void onRunError(Exception e) {
         System.out.println("onRunError " + e.getMessage());
         if (e.getMessage().equals("USB get_status request failed")) {
-            System.out.println("plytka sie rozlaczyla but what now");
+            System.out.println("plytka sie rozlaczyla");
             connected = false;
         }
 
@@ -186,19 +260,62 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             Toast.makeText(context, "not connected", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        Message db_msg = null;
+        byte[] msg_bytes = null;
+
         if (recipient == null) {
-            String protomsg = user + ":" + msg;
-            //todo 528chars max command len per docs page11
-            StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
-            for (byte b : protomsg.getBytes(StandardCharsets.UTF_8)) {
-                cmd.append(String.format("%x", b));
-            }
-            send(cmd.toString());
-            db.messageDao().insert(new Message(user, null, msg));
+            String protomsg = nick + ":" + msg;
+            msg_bytes = protomsg.getBytes(StandardCharsets.UTF_8);
         }
         else {
-            Toast.makeText(context, "idk how to send priv yet", Toast.LENGTH_SHORT).show();
-            System.out.println("idk how to send priv yet");
+            System.out.println("sure is priv for " + recipient);
+            msg_bytes = ("#" + nick + ":").getBytes(StandardCharsets.UTF_8);
+            byte[] encrypted = null;
+            byte[] clear = msg.getBytes(StandardCharsets.UTF_8);
+            String decrypted_back;
+            try {
+                encrypted = encrypt(recipient, clear);
+                decrypted_back = decrypt(recipient, encrypted);
+            } catch (Exception e) {
+                System.out.println("what in send from encrypt: " + e);
+                return;
+            }
+            System.out.println("encrypted = " + Arrays.toString(encrypted));
+            System.out.println("decrypted_back = " + decrypted_back);
+            int nickcolonlen = msg_bytes.length;
+            msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + encrypted.length);
+            System.arraycopy(encrypted, 0, msg_bytes, nickcolonlen, encrypted.length);
+        }
+
+        //todo 528chars max command len per docs page11
+        StringBuilder cmd = new StringBuilder("AT+TEST=TXLRPKT,");
+        for (byte b : msg_bytes) {
+            cmd.append(String.format("%02x", b));
+        }
+
+        send(cmd.toString());
+
+        db_msg = new Message(nick, recipient, msg);
+        db.messageDao().insert(db_msg);
+        System.out.println("asdf" + openChat.chat + " " + nick);
+        if ( (openChat.chat == null && recipient == null) || ((openChat.chat != null && recipient != null) && openChat.chat.equals(recipient)) ) {
+            openChat.msgAdapter.msgs.add(db_msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
+        }
+        else if (openChat.chat.equals(recipient)) {
+            openChat.msgAdapter.msgs.add(db_msg);
+            openChat.msgAdapter.notifyItemInserted(openChat.msgAdapter.getItemCount() - 1);
+            int lastCompletelyVisibleItem = ((LinearLayoutManager)openChat.recyclerView.getLayoutManager()).findLastCompletelyVisibleItemPosition();
+            if (lastCompletelyVisibleItem == openChat.msgAdapter.getItemCount() - 2) {
+                System.out.println("lastCompletelyVisibleItem " + lastCompletelyVisibleItem + " " + openChat.msgAdapter.getItemCount());
+                openChat.recyclerView.scrollToPosition(openChat.msgAdapter.getItemCount() - 1);
+            }
         }
     }
 
@@ -217,35 +334,75 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     public void setContext(Context context) {
+        System.out.println("MsgStore.setContext()");
         this.context = context;
         db = Room.databaseBuilder(context, AppDatabase.class, "chats").allowMainThreadQueries().build();
-        db.messageDao().insert(new Message("kielecki", null, "smierc winiarskim gnidom"));
+//        db.messageDao().insert(new Message("kielecki", "e", "death to all the other letters"));
+//        if (db.chatDao().getChat("e") == null) {
+//            db.chatDao().upsert(new Chat("e", "bajojajobajojajo".getBytes(StandardCharsets.UTF_8)));
+//        }
+        nick = getNick();
+        baudrate = getBaudrate();
     }
 
-    public void setOpenChat(TerminalFragment chat) {
+    public void setOpenChat(SecondFragment chat) {
         openChat = chat;
     }
 
-    public void setDevice(int deviceId, int portNum, int baudRate) {
-        this.deviceId = deviceId;
-        this.portNum = portNum;
-        this.baudRate = baudRate;
+    public void setNick(String nick) {
+        this.nick = nick;
+        db.bloatDao().upsert(new Bloat("nick", nick));
     }
 
-    public void askForPermission() throws Exception {
-        if (deviceId == -1 || portNum == -1 || baudRate == -1 || context == null) {
+    public String getNick() {
+        if (db.bloatDao().getValue("nick") == null) {
+            db.bloatDao().upsert(new Bloat("nick", "e"));
+        }
+        return (String) db.bloatDao().getValue("nick");
+    }
+
+    public void setBaudrate(int baudrate) {
+        this.baudrate = baudrate;
+        db.bloatDao().upsert(new Bloat("baudrate", String.valueOf(baudrate)));
+    }
+
+    public int getBaudrate() {
+        if (db.bloatDao().getValue("baudrate") == null) {
+            db.bloatDao().upsert(new Bloat("baudrate", "9600"));
+        }
+        return Integer.parseInt(db.bloatDao().getValue("baudrate"));
+    }
+
+    public int[] getDevice() throws Exception {
+        if (db.bloatDao().getValue("deviceId") == null || db.bloatDao().getValue("portNum") == null) {
             throw new Exception("device not set");
         }
+        return new int[]{Integer.parseInt(db.bloatDao().getValue("deviceId")), Integer.parseInt(db.bloatDao().getValue("portNum"))};
+    }
+
+//    public void setDevice(int deviceId, int portNum) {
+//        this.deviceId = deviceId;
+//        this.portNum = portNum;
+//        db.bloatDao().upsert(new Bloat("deviceId", String.valueOf(deviceId)));
+//        db.bloatDao().upsert(new Bloat("portNum", String.valueOf(portNum)));
+//    }
+
+    public void askForPermission() throws Exception {
+        System.out.println("askForPermission()");
+//        System.out.println("askForPermission() deviceId="+deviceId+" portNum="+portNum+" baudRate="+ baudrate);
+//        if (deviceId == -1 || portNum == -1 || baudrate == -1 || context == null) {
+//            throw new Exception("device not set");
+//        }
         context.registerReceiver(broadcastReceiver, new IntentFilter(INTENT_ACTION_GRANT_USB));
 
         UsbDevice device = null;
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-        for(UsbDevice v : usbManager.getDeviceList().values())
-            if(v.getDeviceId() == deviceId)
-                device = v;
-        if(device == null) {
+        Collection<UsbDevice> devlist= usbManager.getDeviceList().values();
+        if (devlist.size() <= 0) {
             throw new Exception("connection failed: device not found");
         }
+        System.out.println("devlist= " + devlist);
+        device = (UsbDevice) devlist.toArray()[0];
         UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
         if(driver == null) {
             driver = CustomProber.getCustomProber().probeDevice(device);
@@ -253,10 +410,11 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         if(driver == null) {
             throw new Exception("connection failed: no driver for device");
         }
-        if(driver.getPorts().size() < portNum) {
+        System.out.println("ports= " + driver.getPorts());
+        if(driver.getPorts().size() < 1) {
             throw new Exception("connection failed: not enough ports at device");
         }
-        usbSerialPort = driver.getPorts().get(portNum);
+        usbSerialPort = driver.getPorts().get(0);
         UsbDeviceConnection usbConnection = usbManager.openDevice(driver.getDevice());
         if(usbConnection == null && !usbManager.hasPermission(driver.getDevice())) {
             usbPermission = MsgStore.UsbPermission.Requested;
@@ -264,13 +422,14 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(context, 0, new Intent(INTENT_ACTION_GRANT_USB), flags);
             usbManager.requestPermission(driver.getDevice(), usbPermissionIntent);
         } else {
+            deviceId = device.getDeviceId();
             connect();
         }
     }
 
     private void connect() throws Exception {
         System.out.println("connect()");
-        if (deviceId == -1 || portNum == -1 || baudRate == -1) {
+        if (deviceId == -1 || portNum == -1 || baudrate == -1) {
             throw new Exception("device not set");
         }
 //        Toast.makeText(context, "" + deviceId + " " + portNum + " " + baudRate + " " + withIoManager, Toast.LENGTH_SHORT).show();
@@ -303,15 +462,13 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         try {
             usbSerialPort.open(usbConnection);
             try{
-                usbSerialPort.setParameters(baudRate, 8, 1, UsbSerialPort.PARITY_NONE);
+                usbSerialPort.setParameters(baudrate, 8, 1, UsbSerialPort.PARITY_NONE);
             }catch (UnsupportedOperationException e){
                 System.out.println("not supported setparameters");
             }
-            if(withIoManager) {
-                usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
-                usbIoManager.start();
-                System.out.println("usbiomanager starteth");
-            }
+            usbIoManager = new SerialInputOutputManager(usbSerialPort, this);
+            usbIoManager.start();
+            System.out.println("usbiomanager starteth");
             send("AT");
             System.out.println("ping");
             //response caught in onnewdata
@@ -345,25 +502,56 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         usbSerialPort = null;
     }
 
-    String hexStringToString(String hex) {
-        StringBuilder result = new StringBuilder(hex.length()/2);
+    byte[] hexStringTobyteArray(String hex) {
+        byte[] result = new byte[hex.length()/2];
         for (int i = 0; i < hex.length(); i += 2) {
-            char currentChar = 0;
+            byte currentChar = 0;
             if (hex.getBytes()[i] >= '0' && hex.getBytes()[i] <= '9') {
-                currentChar = (char) ((hex.getBytes()[i] - '0') * 16);
+                currentChar = (byte) ((hex.getBytes()[i] - '0') * 16);
             } else if (hex.getBytes()[i] >= 'A' && hex.getBytes()[i] <= 'F') {
-                currentChar = (char) ((hex.getBytes()[i] - 'A' + 10) * 16);
+                currentChar = (byte) ((hex.getBytes()[i] - 'A' + 10) * 16);
             }
 
             if (hex.getBytes()[i+1] >= '0' && hex.getBytes()[i+1] <= '9') {
-                currentChar += (char) (hex.getBytes()[i+1] - '0');
+                currentChar += (byte) (hex.getBytes()[i+1] - '0');
             } else if (hex.getBytes()[i+1] >= 'A' && hex.getBytes()[i+1] <= 'F') {
-                currentChar += (char) (hex.getBytes()[i+1] - 'A' + 10);
+                currentChar += (byte) (hex.getBytes()[i+1] - 'A' + 10);
             }
 
-            result.append(currentChar);
+            result[i/2] = currentChar;
         }
-        return result.toString();
+        return result;
+    }
+
+    byte[] encrypt(String chat, byte[] text) throws Exception {
+        int clearlen = ((int)Math.ceil(text.length/16.0))*16;
+
+        text = Arrays.copyOf(text, clearlen);
+        Cipher encodeCipher = getCiphers(chat)[0];
+        return encodeCipher.doFinal(text);
+    }
+
+    String decrypt(String chat, byte[] text) throws Exception {
+        Cipher decodeCipher = getCiphers(chat)[1];
+        byte[] clear = decodeCipher.doFinal(text);
+        int reallen = clear.length;
+        for (; clear[reallen-1] != 0; reallen--);
+        clear = Arrays.copyOf(clear, reallen);
+        return new String(clear, StandardCharsets.UTF_8);
+    }
+
+    Cipher[] getCiphers(String chat) throws Exception {
+        Chat chatobj = db.chatDao().getChat(chat);
+        if (chatobj == null) {
+            throw new Exception("no saved key for chat " + chat);
+        }
+
+        Cipher encryptCipher = Cipher.getInstance("AES_128/ECB/NoPadding");
+        encryptCipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(chatobj.key, "AES"));
+        Cipher decryptCipher = Cipher.getInstance("AES_128/ECB/NoPadding");
+        decryptCipher.init(Cipher.DECRYPT_MODE, new SecretKeySpec(chatobj.key, "AES"));
+        ciphers.put(chat, new Cipher[]{encryptCipher, decryptCipher});
+        return new Cipher[]{encryptCipher, decryptCipher};
     }
 
 }

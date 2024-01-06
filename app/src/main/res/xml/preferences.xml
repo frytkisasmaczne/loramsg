@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".PreferencesFragment">
+    <ListPreference
+        android:defaultValue="9600"
+        android:entries="@array/baud_rates"
+        android:entryValues="@array/baud_rates"
+        android:key="baudrate"
+        android:title="Baudrate" />
+    <EditTextPreference
+        android:defaultValue="e"
+        android:key="nick"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="Nickname" />
+</PreferenceScreen>
