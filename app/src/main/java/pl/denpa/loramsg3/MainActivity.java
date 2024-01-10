@@ -2,23 +2,19 @@ package pl.denpa.loramsg3;
 
 import android.os.Bundle;
 
-import com.google.android.material.snackbar.Snackbar;
-
 import androidx.appcompat.app.AppCompatActivity;
-
-import android.view.View;
 
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
 
-import pl.denpa.loramsg3.databinding.ActivityMain2Binding;
+import pl.denpa.loramsg3.databinding.ActivityMainBinding;
 
-public class MainActivity2 extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
 
     private AppBarConfiguration appBarConfiguration;
-    private ActivityMain2Binding binding;
+    private ActivityMainBinding binding;
 
     MsgStore msgStore;
 
@@ -29,7 +25,7 @@ public class MainActivity2 extends AppCompatActivity {
         msgStore = MsgStore.getInstance();
         msgStore.setContext(this);
 
-        binding = ActivityMain2Binding.inflate(getLayoutInflater());
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
         setSupportActionBar(binding.toolbar);
