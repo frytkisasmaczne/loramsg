@@ -21,16 +21,26 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         private final TextView textView;
+        private final TextView nickView;
+        private final TextView rssiView;
 
         public ViewHolder(View view) {
             super(view);
 //            System.out.println("ViewHolder()");
             // Define click listener for the ViewHolder's View
-            textView = view.findViewById(R.id.textView);
+            textView = view.findViewById(R.id.textView6);
+            nickView = view.findViewById(R.id.textView);
+            rssiView = view.findViewById(R.id.textView3);
         }
 
         public TextView getTextView() {
             return textView;
+        }
+        public TextView getNickView() {
+            return nickView;
+        }
+        public TextView getRssiView() {
+            return rssiView;
         }
     }
 
@@ -53,7 +63,13 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
         // contents of the view with that element
 //        Message msg = db.messageDao().getPrivConversation(openChat.chat).get(position);
         Message msg = msgs.get(position);
-        viewHolder.getTextView().setText(msg.author + ": " + msg.text);
+        viewHolder.getTextView().setText(msg.text);
+        viewHolder.getNickView().setText(msg.author + ": ");
+        if (msg.rssi == 999 && msg.snr == 999) {
+            viewHolder.getRssiView().setText("rssi:n/a snr:n/a");
+        } else {
+            viewHolder.getRssiView().setText("rssi:" + msg.rssi + " snr:" + msg.snr);
+        }
 //        System.out.println(msg.author + ": " + msg.text);
     }
 

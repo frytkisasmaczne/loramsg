@@ -59,6 +59,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     public SecondFragment openChat = null;
     public FirstFragment chatsFragment = null;
     private final StringBuilder receiveBuffer = new StringBuilder();
+    private int lastRssi;
+    private int lastSnr;
     public String nick = "kielecki";
     public HashMap<String, Cipher[]> ciphers = new HashMap<>();
     //ciphers[i][0] = encryptCipher; ciphers[i][1] = decryptCipher;
@@ -125,6 +127,14 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         else if (command.equals("+TEST: TX DONE")) {
             send("AT+TEST=RXLRPKT");
         }
+        else if (command.startsWith("+TEST: LEN:")) {
+            Matcher rssiRaport = Pattern.compile("\\+TEST: LEN:\\d+, RSSI:(-?\\d+), SNR:(-?\\d+)").matcher(command);
+            if (rssiRaport.find()) {
+                lastRssi = Integer.parseInt(rssiRaport.group(1));
+                lastSnr = Integer.parseInt(rssiRaport.group(2));
+
+            }
+        }
         else {
             Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
             if (protoMsg.find()) {
@@ -172,7 +182,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     void receiveBroadcastMsg(String author, String text) {
-        Message msg = new Message(author, null, text);
+        Message msg = new Message(author, null, text, lastRssi, lastSnr);
         db.messageDao().insert(msg);
         if (openChat.chat == null) {
             openChat.msgAdapter.msgs.add(msg);
@@ -187,7 +197,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
     void receivePrivMsg(String author, String text) {
         System.out.println("receivePrivMsg(" + author + ", " + text +")");
-        Message msg = new Message(author, author, text);
+        Message msg = new Message(author, author, text, lastRssi, lastSnr);
         db.messageDao().insert(msg);
         if (author.equals(openChat.chat)) {
             openChat.msgAdapter.msgs.add(msg);
@@ -296,7 +306,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
 
         send(cmd.toString());
 
-        db_msg = new Message(nick, recipient, msg);
+        db_msg = new Message(nick, recipient, msg, 999, 999);
         db.messageDao().insert(db_msg);
         System.out.println("asdf" + openChat.chat + " " + nick);
         if ( (openChat.chat == null && recipient == null) || ((openChat.chat != null && recipient != null) && openChat.chat.equals(recipient)) ) {

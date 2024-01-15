@@ -6,10 +6,12 @@ import androidx.room.PrimaryKey;
 
 @Entity
 public class Message {
-    public Message(String author, String chat, String text) {
+    public Message(String author, String chat, String text, int rssi, int snr) {
         this.author = author;
         this.chat = chat;
         this.text = text;
+        this.rssi = rssi;
+        this.snr = snr;
     }
     @PrimaryKey(autoGenerate = true)
     public int uid;
@@ -19,4 +21,8 @@ public class Message {
     public String author;
     @ColumnInfo(name = "text")
     public String text;
+    @ColumnInfo(name = "rssi")
+    public int rssi;
+    @ColumnInfo(name = "snr")
+    public int snr;
 }
