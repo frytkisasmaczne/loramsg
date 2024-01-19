@@ -140,19 +140,17 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                 byte[] pktbytes = hexStringTobyteArray(protoMsg.group(1));
                 byte header = pktbytes[0];
                 byte[] pktbytesnoheader = Arrays.copyOfRange(pktbytes, 1, pktbytes.length);
-                String decoded = new String(pktbytesnoheader, StandardCharsets.UTF_8);
-                System.out.println("received lora packet " + decoded);
                 if (header == (byte) 0xFE) {
                     int colonIndex = 0;
-                    for (int i = 0; i < pktbytes.length; i++) {
-                        if (pktbytes[i] == ':') {
+                    for (int i = 0; i < pktbytesnoheader.length; i++) {
+                        if (pktbytesnoheader[i] == ':') {
                             colonIndex = i;
                             break;
                         }
                     }
                     if (colonIndex == 0) return;
-                    String author = new String(Arrays.copyOfRange(pktbytes, 0, colonIndex), StandardCharsets.UTF_8);
-                    byte[] encrypted = Arrays.copyOfRange(pktbytes, colonIndex+1, pktbytes.length);
+                    String author = new String(Arrays.copyOfRange(pktbytesnoheader, 0, colonIndex), StandardCharsets.UTF_8);
+                    byte[] encrypted = Arrays.copyOfRange(pktbytesnoheader, colonIndex+1, pktbytesnoheader.length);
                     String clear;
                     try {
                         clear = decrypt(author, encrypted);
@@ -163,6 +161,8 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                     receivePrivMsg(author, clear);
 
                 } else if (header == (byte) 0xFF) {
+                    String decoded = new String(pktbytesnoheader, StandardCharsets.UTF_8);
+                    System.out.println("received lora packet " + decoded);
                     Matcher msgMatcher = Pattern.compile("(\\w*):(.*)").matcher(decoded);
                     if (!msgMatcher.find()) return;
                     String author = msgMatcher.group(1);
@@ -290,18 +290,20 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             String decrypted_back;
             try {
                 encrypted = encrypt(recipient, clear);
+                System.out.println("encrypted = " + Arrays.toString(encrypted));
                 decrypted_back = decrypt(recipient, encrypted);
+                System.out.println("decrypted_back = " + decrypted_back);
             } catch (Exception e) {
                 System.out.println("what in send from encrypt: " + e);
                 return;
             }
-            System.out.println("encrypted = " + Arrays.toString(encrypted));
-            System.out.println("decrypted_back = " + decrypted_back);
+
+
             int nickcolonlen = msg_bytes.length;
             msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + encrypted.length + 1);
             System.arraycopy(msg_bytes, 0, msg_bytes, 1, nickcolonlen);
             msg_bytes[0] = (byte) 0xFE;
-            System.arraycopy(encrypted, 0, msg_bytes, nickcolonlen, encrypted.length);
+            System.arraycopy(encrypted, 0, msg_bytes, nickcolonlen+1, encrypted.length);
         }
 
         //todo 528chars max command len per docs page11
@@ -540,11 +542,12 @@ public class MsgStore implements SerialInputOutputManager.Listener {
     }
 
     byte[] encrypt(String chat, byte[] text) throws Exception {
-        int clearlen = ((int)Math.ceil(text.length/16.0))*16;
-
-        text = Arrays.copyOf(text, clearlen);
+        int clearlen = ((int)Math.ceil((text.length+1)/16.0))*16;
+        byte[] clear = new byte[clearlen];
+        clear[0] = '#';
+        System.arraycopy(text, 0, clear, 1, text.length);
         Cipher encodeCipher = getCiphers(chat)[0];
-        return encodeCipher.doFinal(text);
+        return encodeCipher.doFinal(clear);
     }
 
     String decrypt(String chat, byte[] text) throws Exception {
@@ -552,7 +555,10 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         byte[] clear = decodeCipher.doFinal(text);
         int reallen = clear.length;
         for (; clear[reallen-1] != 0; reallen--);
-        clear = Arrays.copyOf(clear, reallen);
+        if (clear[0] != '#') {
+            throw new Exception("received encrypted chat not for you");
+        }
+        clear = Arrays.copyOfRange(clear, 1, reallen);
         return new String(clear, StandardCharsets.UTF_8);
     }
 
