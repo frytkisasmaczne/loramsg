@@ -115,7 +115,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             send("AT+MODE=TEST");
         }
         else if (command.equals("+MODE: TEST")) {
-            send("AT+TEST=RFCFG,868,SF7,125,8,8,14,ON,OFF,OFF");
+            send("AT+TEST=RFCFG,868,SF12,500,8,8,14,ON,OFF,OFF");
         }
         else if (command.startsWith("+TEST: RFCFG ")) {
             send("AT+TEST=RXLRPKT");
@@ -132,16 +132,17 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             if (rssiRaport.find()) {
                 lastRssi = Integer.parseInt(rssiRaport.group(1));
                 lastSnr = Integer.parseInt(rssiRaport.group(2));
-
             }
         }
         else {
             Matcher protoMsg = Pattern.compile("\\+TEST: RX \\\"([\\dA-F]*)\\\"").matcher(command);
             if (protoMsg.find()) {
                 byte[] pktbytes = hexStringTobyteArray(protoMsg.group(1));
-                String decoded = new String(pktbytes, StandardCharsets.UTF_8);
+                byte header = pktbytes[0];
+                byte[] pktbytesnoheader = Arrays.copyOfRange(pktbytes, 1, pktbytes.length);
+                String decoded = new String(pktbytesnoheader, StandardCharsets.UTF_8);
                 System.out.println("received lora packet " + decoded);
-                if (decoded.startsWith("#")) {
+                if (header == (byte) 0xFE) {
                     int colonIndex = 0;
                     for (int i = 0; i < pktbytes.length; i++) {
                         if (pktbytes[i] == ':') {
@@ -150,7 +151,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                         }
                     }
                     if (colonIndex == 0) return;
-                    String author = new String(Arrays.copyOfRange(pktbytes, 1, colonIndex), StandardCharsets.UTF_8);
+                    String author = new String(Arrays.copyOfRange(pktbytes, 0, colonIndex), StandardCharsets.UTF_8);
                     byte[] encrypted = Arrays.copyOfRange(pktbytes, colonIndex+1, pktbytes.length);
                     String clear;
                     try {
@@ -161,7 +162,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
                     }
                     receivePrivMsg(author, clear);
 
-                } else {
+                } else if (header == (byte) 0xFF) {
                     Matcher msgMatcher = Pattern.compile("(\\w*):(.*)").matcher(decoded);
                     if (!msgMatcher.find()) return;
                     String author = msgMatcher.group(1);
@@ -277,10 +278,13 @@ public class MsgStore implements SerialInputOutputManager.Listener {
         if (recipient == null) {
             String protomsg = nick + ":" + msg;
             msg_bytes = protomsg.getBytes(StandardCharsets.UTF_8);
+            msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + 1);
+            System.arraycopy(msg_bytes, 0, msg_bytes, 1, msg_bytes.length);
+            msg_bytes[0] = (byte) 0xFF;
         }
         else {
             System.out.println("sure is priv for " + recipient);
-            msg_bytes = ("#" + nick + ":").getBytes(StandardCharsets.UTF_8);
+            msg_bytes = (nick + ":").getBytes(StandardCharsets.UTF_8);
             byte[] encrypted = null;
             byte[] clear = msg.getBytes(StandardCharsets.UTF_8);
             String decrypted_back;
@@ -294,7 +298,9 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             System.out.println("encrypted = " + Arrays.toString(encrypted));
             System.out.println("decrypted_back = " + decrypted_back);
             int nickcolonlen = msg_bytes.length;
-            msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + encrypted.length);
+            msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + encrypted.length + 1);
+            System.arraycopy(msg_bytes, 0, msg_bytes, 1, nickcolonlen);
+            msg_bytes[0] = (byte) 0xFE;
             System.arraycopy(encrypted, 0, msg_bytes, nickcolonlen, encrypted.length);
         }
 
