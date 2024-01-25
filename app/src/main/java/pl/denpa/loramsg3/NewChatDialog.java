@@ -46,7 +46,7 @@ public class NewChatDialog extends DialogFragment {
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        ((Button) dialog.findViewById(R.id.button)).setOnClickListener(view -> barcodeLauncher.launch(new ScanOptions()));
+        ((Button) dialog.findViewById(R.id.button)).setOnClickListener(view -> barcodeLauncher.launch(new ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)));
 
         return dialog;
     }
@@ -60,7 +60,7 @@ public class NewChatDialog extends DialogFragment {
                 String text = result.getContents();
                 String[] nowsplit = text.split(":", 2);
                 if (nowsplit.length != 2 || nowsplit[0].length() == 0 || nowsplit[1].length() != 25) {
-                    System.out.println("scanned qr is not a chat" + Arrays.toString(nowsplit) + nowsplit[1].length());
+                    System.out.println("scanned qr is not a chat " + Arrays.toString(nowsplit));
                     Toast.makeText(getContext(), "scanned qr is not a chat", Toast.LENGTH_SHORT).show();
                     return;
                 }
