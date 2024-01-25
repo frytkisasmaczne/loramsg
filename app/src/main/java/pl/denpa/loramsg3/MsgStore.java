@@ -279,7 +279,7 @@ public class MsgStore implements SerialInputOutputManager.Listener {
             String protomsg = nick + ":" + msg;
             msg_bytes = protomsg.getBytes(StandardCharsets.UTF_8);
             msg_bytes = Arrays.copyOf(msg_bytes, msg_bytes.length + 1);
-            System.arraycopy(msg_bytes, 0, msg_bytes, 1, msg_bytes.length);
+            System.arraycopy(msg_bytes, 0, msg_bytes, 1, msg_bytes.length-1);
             msg_bytes[0] = (byte) 0xFF;
         }
         else {

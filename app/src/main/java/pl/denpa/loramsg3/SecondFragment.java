@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
@@ -102,11 +103,7 @@ public class SecondFragment extends Fragment {
 
     private void send(String str) {
 //        if(!connected) asdf
-        try {
-            msgStore.send(chat, str);
-        } catch (Exception e) {
-            System.out.println("what in SecondFragment.send(" + str + ") chat = " + chat + ": " + e);
-        }
+        msgStore.send(chat, str);
     }
 
 }
